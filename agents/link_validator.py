@@ -33,8 +33,7 @@ def _search_fallback(title: str) -> str:
 
 
 def _material_search_fallback(name: str, store_name: str = "", url: str = "") -> str:
-    domain = link_builder.infer_store_domain(store_name, url)
-    return link_builder.generate_product_url(name, preferred_domain=domain)
+    return link_builder.generate_product_url(name)
 
 
 def _domain(url: str) -> str:
@@ -123,98 +122,132 @@ def _validate_material_link(material: dict, pattern_title: str) -> dict:
     validated = dict(material)
     name = validated.get("name", "crochet supply")
     url = (validated.get("store_url") or "").strip()
-    store_name = validated.get("store_name", "")
-    domain = link_builder.infer_store_domain(store_name, url)
     hook_size = validated.get("hook_size", "")
-    strategy = "vendor_search"
+    strategy = "amazon_affiliate_search"
 
-    fallback = link_builder.generate_product_url(name, preferred_domain=domain, hook_size=hook_size)
+    fallback = link_builder.generate_product_url(name, hook_size=hook_size)
     validated["affiliate_url"] = fallback
-    validated["store_url"] = fallback
+    validated["store_url"] = url or fallback
     validated["approx_price"] = "Price varies by retailer"
-    if fallback.startswith("https://www.google.com/search?q="):
-        strategy = "google_fallback"
     validated["material_link_strategy"] = strategy
-    validated["link_validation_note"] = "search link generated"
+    validated["link_validation_note"] = "amazon affiliate search generated"
+
+    if _domain(fallback) == "amazon.com":
+        validated["affiliate_url"] = fallback
+        print(
+            f"    [Link Validator] OK MATERIAL: {pattern_title} / {name} -> {fallback} "
+            f"(material_link_strategy={strategy}, validation=structured_amazon_affiliate)"
+        )
+        validated["link_validation_note"] = "validated structured amazon affiliate search"
+        return validated
 
     try:
-        ok, final_url, status = _validate_url(url)
+        ok, final_url, status = _validate_url(fallback)
+    except Exception as exc:
+        retry_url = link_builder.generate_retry_product_url(name, hook_size=hook_size)
+        validated["affiliate_url"] = retry_url
+        validated["material_link_strategy"] = "amazon_affiliate_retry"
+        try:
+            retry_ok, retry_final_url, retry_status = _validate_url(retry_url)
+        except Exception as retry_exc:
+            print(
+                f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {fallback} "
+                f"({exc}); retry failed ({retry_exc}). material_link_strategy=amazon_affiliate_retry"
+            )
+            validated["link_validation_note"] = f"invalid material link replaced ({retry_exc})"
+            return validated
+
+        if retry_ok:
+            validated["affiliate_url"] = retry_final_url
+            print(
+                f"    [Link Validator] RETRY MATERIAL: {pattern_title} / {name} -> {retry_final_url} "
+                f"(material_link_strategy=amazon_affiliate_retry)"
+            )
+            validated["link_validation_note"] = "validated 200 with amazon affiliate retry"
+            return validated
+
+        print(
+            f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {fallback} "
+            f"({exc}); retry status={retry_status}. material_link_strategy=amazon_affiliate_retry"
+        )
+        validated["link_validation_note"] = f"invalid material link replaced (retry status={retry_status})"
+        return validated
+
+    if ok:
+        validated["affiliate_url"] = final_url
+        print(
+            f"    [Link Validator] OK MATERIAL: {pattern_title} / {name} -> {final_url} "
+            f"(material_link_strategy={strategy})"
+        )
+        validated["link_validation_note"] = "validated 200 with amazon affiliate search"
+        return validated
+
+    retry_url = link_builder.generate_retry_product_url(name, hook_size=hook_size)
+    validated["affiliate_url"] = retry_url
+    validated["material_link_strategy"] = "amazon_affiliate_retry"
+    try:
+        retry_ok, retry_final_url, retry_status = _validate_url(retry_url)
     except Exception as exc:
         print(
-            f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {url or 'missing url'} "
-            f"({exc}). Replaced with search fallback. material_link_strategy={strategy}"
+            f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {fallback} "
+            f"(status={status}); retry failed ({exc}). material_link_strategy=amazon_affiliate_retry"
         )
         validated["link_validation_note"] = f"invalid material link replaced ({exc})"
         return validated
 
-    if ok:
+    if retry_ok:
+        validated["affiliate_url"] = retry_final_url
         print(
-            f"    [Link Validator] OK MATERIAL: {pattern_title} / {name} -> {fallback} "
-            f"(material_link_strategy={strategy})"
+            f"    [Link Validator] RETRY MATERIAL: {pattern_title} / {name} -> {retry_final_url} "
+            f"(material_link_strategy=amazon_affiliate_retry)"
         )
-        validated["link_validation_note"] = "validated 200 via search strategy"
+        validated["link_validation_note"] = "validated 200 with amazon affiliate retry"
         return validated
 
     print(
-        f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {url or 'missing url'} "
-        f"(status={status}). Replaced with search fallback. material_link_strategy={strategy}"
+        f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {fallback} "
+        f"(status={status}); retry status={retry_status}. material_link_strategy=amazon_affiliate_retry"
     )
-    validated["link_validation_note"] = f"invalid material link replaced (status={status})"
+    validated["link_validation_note"] = f"invalid material link replaced (retry status={retry_status})"
     return validated
 
 
 def _validate_tutorial_link(pattern: dict) -> dict:
     validated = dict(pattern)
     tutorial = dict(validated.get("video_tutorial") or {})
+    candidates = []
+    seen = set()
+    for candidate in [tutorial] + list(validated.get("tutorial_candidates") or []):
+        url = (candidate or {}).get("url")
+        if url and url not in seen:
+            seen.add(url)
+            candidates.append(dict(candidate))
     title = validated.get("title", "crochet pattern")
-    original_url = (tutorial.get("url") or "").strip()
-    fallback_url = link_builder.generate_tutorial_search_url(title)
-    tutorial["button_text"] = "Search Tutorial"
-    tutorial["tutorial_link_status"] = "fallback"
+    for candidate in candidates:
+        original_url = (candidate.get("url") or "").strip()
+        video_id = link_builder.extract_youtube_video_id(original_url)
+        if not video_id:
+            continue
 
-    video_id = link_builder.extract_youtube_video_id(original_url)
-    if not video_id:
-        tutorial["url"] = fallback_url
-        tutorial["title"] = tutorial.get("title") or f"Search tutorial for {title}"
-        validated["video_tutorial"] = tutorial
-        print(
-            f"    [Link Validator] TUTORIAL FALLBACK: {title} -> missing valid video ID. "
-            f"tutorial_link_status=fallback"
-        )
-        return validated
+        clean_url = link_builder.finalize_tutorial_url(original_url)
+        oembed_url = f"https://www.youtube.com/oembed?url={quote_plus(clean_url)}&format=json"
+        try:
+            ok, _, status = _validate_url(oembed_url)
+            page_ok, page_final_url, _ = _validate_url(clean_url)
+        except Exception:
+            continue
 
-    clean_url = link_builder.finalize_tutorial_url(original_url)
-    oembed_url = f"https://www.youtube.com/oembed?url={quote_plus(clean_url)}&format=json"
-    try:
-        ok, final_url, status = _validate_url(oembed_url)
-    except Exception as exc:
-        tutorial["url"] = fallback_url
-        tutorial["title"] = tutorial.get("title") or f"Search tutorial for {title}"
-        tutorial["link_validation_note"] = f"tutorial fallback ({exc})"
-        validated["video_tutorial"] = tutorial
-        print(
-            f"    [Link Validator] TUTORIAL FALLBACK: {title} -> {clean_url} ({exc}). "
-            f"tutorial_link_status=fallback"
-        )
-        return validated
+        if ok and page_ok:
+            candidate["url"] = page_final_url
+            candidate["button_text"] = "Tutorial"
+            candidate["tutorial_link_status"] = "valid"
+            candidate["link_validation_note"] = "validated 200 via oembed and page check"
+            validated["video_tutorial"] = candidate
+            print(f"    [Link Validator] TUTORIAL OK: {title} -> {page_final_url} tutorial_link_status=valid")
+            return validated
 
-    if ok:
-        tutorial["url"] = clean_url
-        tutorial["button_text"] = "Tutorial"
-        tutorial["tutorial_link_status"] = "valid"
-        tutorial["link_validation_note"] = "validated 200 via oembed"
-        validated["video_tutorial"] = tutorial
-        print(f"    [Link Validator] TUTORIAL OK: {title} -> {clean_url} tutorial_link_status=valid")
-        return validated
-
-    tutorial["url"] = fallback_url
-    tutorial["title"] = tutorial.get("title") or f"Search tutorial for {title}"
-    tutorial["link_validation_note"] = f"tutorial fallback (status={status})"
-    validated["video_tutorial"] = tutorial
-    print(
-        f"    [Link Validator] TUTORIAL FALLBACK: {title} -> {clean_url} (status={status}). "
-        f"tutorial_link_status=fallback"
-    )
+    print(f"    [Link Validator] TUTORIAL REMOVED: {title} -> no valid candidate tutorial_link_status=removed")
+    validated["video_tutorial"] = None
     return validated
 
 

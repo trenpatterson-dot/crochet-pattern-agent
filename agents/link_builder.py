@@ -29,6 +29,13 @@ STORE_SEARCH_URLS = {
 }
 
 AMAZON_ASSOCIATE_TAG = os.getenv("AMAZON_ASSOCIATE_TAG", "").strip()
+SMART_QUERY_MAP = {
+    "scissors": "small craft scissors Fiskars",
+    "stitch markers": "locking stitch markers crochet pack",
+    "stuffing": "polyester fiberfill stuffing small bag",
+    "yarn": "worsted weight yarn beginner soft acrylic",
+    "crochet hook": "ergonomic crochet hook set beginner",
+}
 
 
 def _domain(url: str) -> str:
@@ -92,11 +99,40 @@ def material_query_normalizer(item_name: str, hook_size: str = "") -> str:
     lowered = raw.lower()
 
     if "scissors" in lowered:
-        return "small embroidery scissors"
+        return SMART_QUERY_MAP["scissors"]
     if "yarn needle" in lowered or "tapestry needle" in lowered:
-        return "blunt tip yarn needle set"
+        return "yarn needle set blunt tip"
     if "stitch marker" in lowered:
-        return "locking stitch markers crochet"
+        return SMART_QUERY_MAP["stitch markers"]
+    if "stuffing" in lowered or "fiberfill" in lowered:
+        return SMART_QUERY_MAP["stuffing"]
+    if "crochet hook" in lowered or "hook" in lowered:
+        size = (hook_size or "").strip()
+        if not size:
+            for token in raw.replace("(", " ").replace(")", " ").split():
+                if "mm" in token.lower():
+                    size = token
+                    break
+        size = size or "crochet hook"
+        return f"{size} crochet hook ergonomic beginner set".strip()
+    if "yarn" == lowered or lowered.startswith("yarn "):
+        if "worsted" in lowered or "acrylic" in lowered:
+            return f"{raw} beginner soft acrylic".strip()
+        return SMART_QUERY_MAP["yarn"]
+
+    return raw
+
+
+def refine_product_query(item_name: str, hook_size: str = "") -> str:
+    raw = (item_name or "").strip()
+    lowered = raw.lower()
+
+    if "scissors" in lowered:
+        return "small craft scissors"
+    if "yarn needle" in lowered or "tapestry needle" in lowered:
+        return "large eye tapestry needle set"
+    if "stitch marker" in lowered:
+        return "crochet stitch marker pack"
     if "stuffing" in lowered or "fiberfill" in lowered:
         return "polyester fiberfill stuffing"
     if "crochet hook" in lowered or "hook" in lowered:
@@ -106,9 +142,10 @@ def material_query_normalizer(item_name: str, hook_size: str = "") -> str:
                 if "mm" in token.lower():
                     size = token
                     break
-        size = size or "crochet hook"
-        return f"{size} crochet hook".strip()
-
+        size = size or ""
+        return f"{size} crochet hook ergonomic".strip()
+    if "yarn" in lowered:
+        return "soft acrylic crochet yarn"
     return raw
 
 
@@ -125,76 +162,25 @@ def _vendor_name_for_domain(domain: str) -> str:
     return names.get(domain, "")
 
 
-def _should_use_google_fallback(query: str, preferred_domain: str) -> bool:
-    normalized_domain = preferred_domain.lower().replace("www.", "").strip()
-    if normalized_domain not in {"michaels.com", "joann.com", "lionbrand.com", "yarnspirations.com"}:
-        return True
-
-    generic_terms = {
-        "scissors",
-        "yarn needle",
-        "needle",
-        "stitch markers",
-        "stuffing",
-        "crochet hook",
-    }
-    return query.strip().lower() in generic_terms
-
-
-def _is_generic_tool_query(query: str) -> bool:
-    normalized = query.strip().lower()
-    generic_queries = {
-        "small embroidery scissors",
-        "blunt tip yarn needle set",
-        "locking stitch markers crochet",
-        "polyester fiberfill stuffing",
-    }
-    return normalized in generic_queries or normalized.endswith("crochet hook")
-
-
-def _google_vendor_search(query: str, vendor_name: str = "") -> str:
-    suffix = f" {vendor_name}" if vendor_name else ""
-    return f"https://www.google.com/search?q={quote_plus(f'{query}{suffix}')}"
-
-
 def _amazon_search_url(query_text: str) -> str:
     return f"https://www.amazon.com/s?k={quote_plus(query_text)}"
 
 
 def generate_product_url(item_name: str, preferred_domain: str = "", hook_size: str = "") -> str:
-    normalized_domain = preferred_domain.lower().replace("www.", "").strip()
     query_text = material_query_normalizer(item_name, hook_size=hook_size)
-    vendor_name = _vendor_name_for_domain(normalized_domain)
-
-    if _is_generic_tool_query(query_text):
-        return build_affiliate_url(
-            _amazon_search_url(query_text),
-            store_domain="amazon.com",
-            query=query_text,
-            link_type="product",
-        )
-
-    if _should_use_google_fallback(query_text, normalized_domain):
-        return build_affiliate_url(
-            _google_vendor_search(query_text, vendor_name=vendor_name),
-            store_domain="google.com",
-            query=query_text,
-            link_type="product",
-        )
-
-    query = quote_plus(query_text)
-    template = STORE_SEARCH_URLS.get(normalized_domain)
-    if template:
-        return build_affiliate_url(
-            template.format(query=query),
-            store_domain=normalized_domain,
-            query=query_text,
-            link_type="product",
-        )
-
     return build_affiliate_url(
-        _google_vendor_search(query_text, vendor_name=vendor_name),
-        store_domain="google.com",
+        _amazon_search_url(query_text),
+        store_domain="amazon.com",
+        query=query_text,
+        link_type="product",
+    )
+
+
+def generate_retry_product_url(item_name: str, hook_size: str = "") -> str:
+    query_text = refine_product_query(item_name, hook_size=hook_size)
+    return build_affiliate_url(
+        _amazon_search_url(query_text),
+        store_domain="amazon.com",
         query=query_text,
         link_type="product",
     )

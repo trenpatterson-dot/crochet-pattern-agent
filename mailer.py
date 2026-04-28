@@ -19,7 +19,7 @@ GMAIL_USER = os.getenv("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 EMAIL_DRY_RUN = os.getenv("EMAIL_DRY_RUN", "false").strip().lower() == "true"
 UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me"))
-MATERIALS_SECTION_HEADER = "Materials You'll Need"
+MATERIALS_SECTION_HEADER = "\U0001F9F6 What You\u2019ll Need (Quick Buy Links)"
 
 SKILL_COLORS = {
     "beginner": "#4CAF50",
@@ -63,8 +63,7 @@ def _materials_html(materials: list, link_color: str = "#7B1FA2") -> str:
     items = []
     for m in materials:
         name = m.get("name", "")
-        url = m.get("affiliate_url") or m.get("store_url", "")
-        store = m.get("store_name", "")
+        url = m.get("affiliate_url") or m.get("store_url") or ""
         qty = m.get("quantity", "")
         qty_tag = f" <span style='color:#aaa;font-size:11px;'>({qty})</span>" if qty else ""
         if url:
@@ -72,7 +71,7 @@ def _materials_html(materials: list, link_color: str = "#7B1FA2") -> str:
                 f"<li style='margin:0 0 12px;'>"
                 f"<div style='font-weight:700;color:#4A235A;'>{name}{qty_tag}</div>"
                 f"<div style='margin-top:4px;'><a href='{url}' style='color:{link_color};text-decoration:none;'>"
-                f"Shop at {store or 'retailer'}</a></div>"
+                f"&#128073; Shop on Amazon</a></div>"
                 f"<div style='margin-top:3px;font-size:11px;color:#888;'>Price varies by retailer</div>"
                 f"</li>"
             )
@@ -125,7 +124,6 @@ def _found_pattern_block(p: dict, idx: int) -> str:
     video = p.get("video_tutorial") or {}
     materials = p.get("materials", [])
     description = p.get("snippet") or p.get("why_its_perfect") or ""
-    cost = p.get("total_cost_estimate", "")
     free_tag = "FREE" if p.get("is_free") else (p.get("price") or "Paid")
     free_bg = "#E8F5E9" if p.get("is_free") else "#FFF3E0"
     free_color = "#2E7D32" if p.get("is_free") else "#E65100"
@@ -181,9 +179,7 @@ def _found_pattern_block(p: dict, idx: int) -> str:
         </td></tr>
       </table>
       {f'<table cellpadding="0" cellspacing="0" style="margin-bottom:14px;width:100%;"><tr><td style="background:#FFF8E1;border-left:4px solid #FFA000;padding:8px 12px;border-radius:0 6px 6px 0;"><p style="margin:0;font-size:12px;color:#5D4037;"><strong>Usage note:</strong> {p["compliance_note"]}</p></td></tr></table>' if p.get("compliance_note") else ""}
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#4A235A;">
-        Materials{f" - est. {cost}" if cost else ""}:
-      </p>
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#4A235A;">Materials:</p>
       <ul style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#555;line-height:1.7;">
         {_materials_html(materials)}
       </ul>
@@ -411,7 +407,7 @@ def build_html(user: dict, patterns: list[dict]) -> str:
       Sent because you asked for personalized crochet recommendations. You can opt out any time.
     </p>
     <p style="margin:8px 0 0;font-size:11px;color:#9A92A5;line-height:1.6;">
-      Some links may be affiliate links. If you purchase through them, I may earn a small commission at no extra cost to you.
+      This email may contain affiliate links. We may earn a small commission at no extra cost to you.
     </p>
   </td></tr>
 </table>
