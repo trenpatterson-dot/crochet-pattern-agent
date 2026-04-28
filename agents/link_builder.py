@@ -181,6 +181,20 @@ def _amazon_search_url(query_text: str) -> str:
     return f"https://www.amazon.com/s?k={quote_plus(query_text)}"
 
 
+def generate_store_search_url(item_name: str, store_domain: str, hook_size: str = "") -> str:
+    normalized_domain = (store_domain or "").lower().replace("www.", "").strip()
+    template = STORE_SEARCH_URLS.get(normalized_domain)
+    if not template:
+        return ""
+    query_text = material_query_normalizer(item_name, hook_size=hook_size)
+    return build_affiliate_url(
+        template.format(query=quote_plus(query_text)),
+        store_domain=normalized_domain,
+        query=query_text,
+        link_type="product",
+    )
+
+
 def generate_product_url(item_name: str, preferred_domain: str = "", hook_size: str = "") -> str:
     query_text = material_query_normalizer(item_name, hook_size=hook_size)
     return build_affiliate_url(

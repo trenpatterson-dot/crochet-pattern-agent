@@ -63,7 +63,8 @@ def _materials_html(materials: list, link_color: str = "#7B1FA2") -> str:
     items = []
     for m in materials:
         name = m.get("name", "")
-        url = m.get("affiliate_url") or m.get("store_url") or ""
+        url = m.get("material_cta_url") or m.get("affiliate_url") or m.get("store_url") or ""
+        cta_label = m.get("material_cta_label") or "Shop Materials"
         qty = m.get("quantity", "")
         qty_tag = f" <span style='color:#aaa;font-size:11px;'>({qty})</span>" if qty else ""
         if url:
@@ -71,7 +72,7 @@ def _materials_html(materials: list, link_color: str = "#7B1FA2") -> str:
                 f"<li style='margin:0 0 12px;'>"
                 f"<div style='font-weight:700;color:#4A235A;'>{name}{qty_tag}</div>"
                 f"<div style='margin-top:4px;'><a href='{url}' style='color:{link_color};text-decoration:none;'>"
-                f"&#128073; Shop on Amazon</a></div>"
+                f"&#128073; {cta_label}</a></div>"
                 f"<div style='margin-top:3px;font-size:11px;color:#888;'>Price varies by retailer</div>"
                 f"</li>"
             )

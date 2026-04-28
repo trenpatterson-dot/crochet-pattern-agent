@@ -26,6 +26,14 @@ KNOWN_PATTERN_DOMAINS = {
 }
 
 KNOWN_STORE_DOMAINS = link_builder.KNOWN_STORE_DOMAINS
+ERROR_TEXT_MARKERS = {
+    "we're sorry",
+    "we’re sorry",
+    "page not found",
+    "404",
+    "sorry, we can't find",
+    "sorry, we cant find",
+}
 
 
 def _search_fallback(title: str) -> str:
@@ -125,6 +133,104 @@ def _validate_url(url: str, timeout_seconds: float = 4.0) -> tuple[bool, str, in
         status = getattr(response, "status", None)
         final_url = response.geturl() or url
         return status == 200, final_url, status
+
+
+def _is_unexpected_homepage_redirect(original_url: str, final_url: str) -> bool:
+    try:
+        original = urlparse(original_url.strip())
+        final = urlparse(final_url.strip())
+    except Exception:
+        return False
+
+    original_domain = (original.netloc or "").lower().replace("www.", "")
+    final_domain = (final.netloc or "").lower().replace("www.", "")
+    original_path = (original.path or "").strip("/")
+    final_path = (final.path or "").strip("/")
+
+    if not original_domain or original_domain != final_domain:
+        return False
+    if not original_path:
+        return False
+    return final_path == ""
+
+
+def _page_contains_error_text(url: str, timeout_seconds: float = 4.0) -> tuple[bool, str]:
+    req = Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123 Safari/537.36"
+            )
+        },
+        method="GET",
+    )
+    with urlopen(req, timeout=timeout_seconds) as response:
+        body = response.read(8192)
+        content = body.decode("utf-8", errors="ignore").lower()
+        for marker in ERROR_TEXT_MARKERS:
+            if marker in content:
+                return True, marker
+    return False, ""
+
+
+def _is_lovecrafts_product_or_category_url(url: str) -> bool:
+    parsed = urlparse(url)
+    domain = (parsed.netloc or "").lower().replace("www.", "")
+    if domain != "lovecrafts.com":
+        return True
+    path = (parsed.path or "").lower()
+    if "/en-us/search" in path:
+        return True
+    return any(
+        token in path
+        for token in ("/p/", "/product/", "/products/", "/category/", "/categories/", "/collections/")
+    )
+
+
+def _validate_external_material_url(url: str) -> tuple[bool, str, int | None, str]:
+    if not _looks_like_direct_pattern_url(url):
+        return False, url, None, "not a direct URL"
+    try:
+        ok, final_url, status = _validate_url(url)
+    except Exception as exc:
+        return False, url, None, str(exc)
+    if not ok or status != 200:
+        return False, final_url, status, f"status={status}"
+    if _is_unexpected_homepage_redirect(url, final_url):
+        return False, final_url, status, "unexpected homepage redirect"
+    try:
+        has_error_text, marker = _page_contains_error_text(final_url)
+    except Exception as exc:
+        return False, final_url, status, f"content check failed ({exc})"
+    if has_error_text:
+        return False, final_url, status, f"error text detected ({marker})"
+    if not _is_lovecrafts_product_or_category_url(final_url):
+        return False, final_url, status, "invalid LoveCrafts URL shape"
+    return True, final_url, status, "validated"
+
+
+def _set_material_link_mode(
+    material: dict,
+    *,
+    cta_url: str = "",
+    cta_label: str = "Shop Materials",
+    strategy: str = "",
+    note: str = "",
+    store_url: str = "",
+    affiliate_url: str = "",
+    store_name: str = "",
+) -> dict:
+    updated = dict(material)
+    updated["material_cta_url"] = cta_url
+    updated["material_cta_label"] = cta_label if cta_url else ""
+    updated["affiliate_url"] = affiliate_url or cta_url
+    updated["store_url"] = store_url or cta_url
+    updated["store_name"] = store_name or updated.get("store_name", "")
+    updated["material_link_strategy"] = strategy
+    updated["link_validation_note"] = note
+    updated["approx_price"] = "Price varies by retailer"
+    return updated
 
 
 def _validate_pattern(pattern: dict) -> dict:
@@ -259,94 +365,64 @@ def _validate_material_link(material: dict, pattern_title: str) -> dict:
     validated = dict(material)
     name = validated.get("name", "crochet supply")
     url = (validated.get("store_url") or "").strip()
+    store_name = validated.get("store_name", "")
+    store_domain = link_builder.infer_store_domain(store_name=store_name, url=url)
     hook_size = validated.get("hook_size", "")
-    strategy = "amazon_affiliate_search"
+    amazon_fallback = link_builder.generate_product_url(name, hook_size=hook_size)
+    amazon_retry = link_builder.generate_retry_product_url(name, hook_size=hook_size)
 
-    fallback = link_builder.generate_product_url(name, hook_size=hook_size)
-    validated["affiliate_url"] = fallback
-    validated["store_url"] = url or fallback
-    validated["approx_price"] = "Price varies by retailer"
-    validated["material_link_strategy"] = strategy
-    validated["link_validation_note"] = "amazon affiliate search generated"
-
-    if _domain(fallback) == "amazon.com":
-        validated["affiliate_url"] = fallback
-        print(
-            f"    [Link Validator] OK MATERIAL: {pattern_title} / {name} -> {fallback} "
-            f"(material_link_strategy={strategy}, validation=structured_amazon_affiliate)"
-        )
-        validated["link_validation_note"] = "validated structured amazon affiliate search"
-        return validated
-
-    try:
-        ok, final_url, status = _validate_url(fallback)
-    except Exception as exc:
-        retry_url = link_builder.generate_retry_product_url(name, hook_size=hook_size)
-        validated["affiliate_url"] = retry_url
-        validated["material_link_strategy"] = "amazon_affiliate_retry"
-        try:
-            retry_ok, retry_final_url, retry_status = _validate_url(retry_url)
-        except Exception as retry_exc:
+    if store_domain and store_domain != "amazon.com" and url:
+        ok, final_url, _, reason = _validate_external_material_url(url)
+        if ok:
+            final_domain = _domain(final_url)
             print(
-                f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {fallback} "
-                f"({exc}); retry failed ({retry_exc}). material_link_strategy=amazon_affiliate_retry"
+                f"    [Link Validator] OK MATERIAL: {pattern_title} / {name} -> {final_url} "
+                f"(material_link_strategy=validated_external_store, store={final_domain})"
             )
-            validated["link_validation_note"] = f"invalid material link replaced ({retry_exc})"
-            return validated
+            return _set_material_link_mode(
+                validated,
+                cta_url=link_builder.finalize_url(final_url, link_type="product"),
+                strategy="validated_external_store",
+                note="validated external store URL",
+                store_url=link_builder.finalize_url(final_url, link_type="product"),
+                affiliate_url=link_builder.finalize_url(final_url, link_type="product"),
+                store_name=store_name or link_builder._vendor_name_for_domain(final_domain),
+            )
 
-        if retry_ok:
-            validated["affiliate_url"] = retry_final_url
+        if store_domain == "lovecrafts.com":
+            lovecrafts_search = link_builder.generate_store_search_url(name, "lovecrafts.com", hook_size=hook_size)
             print(
-                f"    [Link Validator] RETRY MATERIAL: {pattern_title} / {name} -> {retry_final_url} "
-                f"(material_link_strategy=amazon_affiliate_retry)"
+                f"    [Link Validator] FALLBACK MATERIAL: {pattern_title} / {name} -> {lovecrafts_search} "
+                f"(reason={reason}, material_link_strategy=lovecrafts_search_fallback)"
             )
-            validated["link_validation_note"] = "validated 200 with amazon affiliate retry"
-            return validated
+            return _set_material_link_mode(
+                validated,
+                cta_url=lovecrafts_search,
+                strategy="lovecrafts_search_fallback",
+                note=f"invalid LoveCrafts direct link replaced with search fallback ({reason})",
+                store_url=lovecrafts_search,
+                affiliate_url=lovecrafts_search,
+                store_name="LoveCrafts",
+            )
 
         print(
-            f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {fallback} "
-            f"({exc}); retry status={retry_status}. material_link_strategy=amazon_affiliate_retry"
+            f"    [Link Validator] LOW CONFIDENCE MATERIAL: {pattern_title} / {name} -> {url} "
+            f"(reason={reason}). Preferring Amazon affiliate fallback."
         )
-        validated["link_validation_note"] = f"invalid material link replaced (retry status={retry_status})"
-        return validated
-
-    if ok:
-        validated["affiliate_url"] = final_url
-        print(
-            f"    [Link Validator] OK MATERIAL: {pattern_title} / {name} -> {final_url} "
-            f"(material_link_strategy={strategy})"
-        )
-        validated["link_validation_note"] = "validated 200 with amazon affiliate search"
-        return validated
-
-    retry_url = link_builder.generate_retry_product_url(name, hook_size=hook_size)
-    validated["affiliate_url"] = retry_url
-    validated["material_link_strategy"] = "amazon_affiliate_retry"
-    try:
-        retry_ok, retry_final_url, retry_status = _validate_url(retry_url)
-    except Exception as exc:
-        print(
-            f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {fallback} "
-            f"(status={status}); retry failed ({exc}). material_link_strategy=amazon_affiliate_retry"
-        )
-        validated["link_validation_note"] = f"invalid material link replaced ({exc})"
-        return validated
-
-    if retry_ok:
-        validated["affiliate_url"] = retry_final_url
-        print(
-            f"    [Link Validator] RETRY MATERIAL: {pattern_title} / {name} -> {retry_final_url} "
-            f"(material_link_strategy=amazon_affiliate_retry)"
-        )
-        validated["link_validation_note"] = "validated 200 with amazon affiliate retry"
-        return validated
 
     print(
-        f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {fallback} "
-        f"(status={status}); retry status={retry_status}. material_link_strategy=amazon_affiliate_retry"
+        f"    [Link Validator] OK MATERIAL: {pattern_title} / {name} -> {amazon_fallback} "
+        "(material_link_strategy=amazon_affiliate_search, validation=structured_amazon_affiliate)"
     )
-    validated["link_validation_note"] = f"invalid material link replaced (retry status={retry_status})"
-    return validated
+    return _set_material_link_mode(
+        validated,
+        cta_url=amazon_fallback,
+        strategy="amazon_affiliate_search",
+        note="validated structured amazon affiliate search",
+        store_url=amazon_fallback,
+        affiliate_url=amazon_fallback,
+        store_name="Amazon",
+    )
 
 
 def _validate_tutorial_link(pattern: dict) -> dict:

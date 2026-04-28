@@ -331,8 +331,26 @@ def main() -> int:
                 "store_url": "https://www.michaels.com/products/hook-example",
                 "hook_size": "5mm",
             },
+            {
+                "name": "Chunky Yarn",
+                "store_name": "LoveCrafts",
+                "store_url": "https://www.lovecrafts.com/en-us/p/still-bad",
+            },
         ]
-        material_checked = link_validator.validate_material_links(fake_result["patterns"])
+        original_material_validate = link_validator._validate_external_material_url
+        try:
+            def fake_material_validate(url):
+                if "lovecrafts.com/en-us/p/still-bad" in url:
+                    return False, url, 404, "status=404"
+                if "michaels.com/products/hook-example" in url:
+                    return False, "https://www.michaels.com/", 200, "unexpected homepage redirect"
+                return False, url, 404, "status=404"
+
+            link_validator._validate_external_material_url = fake_material_validate
+            material_checked = link_validator.validate_material_links(fake_result["patterns"])
+        finally:
+            link_validator._validate_external_material_url = original_material_validate
+
         materials = material_checked[0]["materials"]
         assert "amazon.com/s?k=small+craft+scissors+Fiskars" in materials[0]["affiliate_url"], (
             "scissors link should use Amazon affiliate search query"
@@ -340,11 +358,23 @@ def main() -> int:
         assert "tag=smoketest-20" in materials[0]["affiliate_url"], (
             "scissors affiliate URL should include the Amazon associate tag"
         )
+        assert materials[0]["material_cta_label"] == "Shop Materials", (
+            "material CTA should use Shop Materials for Amazon fallback links"
+        )
         assert "amazon.com/s?k=yarn+needle+set+blunt+tip" in materials[1]["affiliate_url"], (
             "yarn needle link should use Amazon affiliate search query"
         )
         assert "amazon.com/s?k=5mm+crochet+hook+ergonomic+beginner+set" in materials[2]["affiliate_url"], (
-            "crochet hook link should use a specific Amazon affiliate query"
+            "crochet hook link should fall back to a specific Amazon affiliate query when external validation is low confidence"
+        )
+        assert materials[2]["material_link_strategy"] == "amazon_affiliate_search", (
+            "invalid external materials should prefer Amazon affiliate fallback"
+        )
+        assert "lovecrafts.com/en-us/search?q=" in materials[3]["affiliate_url"], (
+            "LoveCrafts failures should use the LoveCrafts search fallback"
+        )
+        assert materials[3]["material_link_strategy"] == "lovecrafts_search_fallback", (
+            "LoveCrafts failures should use the dedicated search fallback strategy"
         )
         assert all(item["approx_price"] == "Price varies by retailer" for item in materials), (
             "material pricing should be normalized"
@@ -388,7 +418,7 @@ def main() -> int:
         assert "What You" in rendered_html and "Quick Buy Links" in rendered_html, (
             "email HTML should use updated materials header"
         )
-        assert "Shop on Amazon" in rendered_html, "email HTML should use Amazon CTA text"
+        assert "Shop Materials" in rendered_html, "email HTML should use the generic materials CTA text"
         assert (
             "This email may contain affiliate links. We may earn a small commission at no extra cost to you."
             in rendered_html
