@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus, urlparse
 from urllib.request import Request, urlopen
 
-from agents import link_builder
+from agents import link_builder, llm
 
 KNOWN_PATTERN_DOMAINS = {
     "etsy.com",
@@ -32,6 +32,10 @@ def _search_fallback(title: str) -> str:
     return link_builder.generate_pattern_url(title)
 
 
+def _safe_pattern_search_fallback(title: str, source_site: str = "") -> str:
+    return link_builder.generate_pattern_search_url(title, source_site=source_site)
+
+
 def _material_search_fallback(name: str, store_name: str = "", url: str = "") -> str:
     return link_builder.generate_product_url(name)
 
@@ -48,6 +52,59 @@ def _looks_like_direct_pattern_url(url: str) -> bool:
     if parsed.scheme not in {"http", "https"}:
         return False
     return bool(parsed.netloc and parsed.path and parsed.path != "/")
+
+
+def _is_allowed_ravelry_url(url: str) -> bool:
+    parsed = urlparse(url)
+    domain = (parsed.netloc or "").lower().replace("www.", "")
+    if domain != "ravelry.com":
+        return True
+    return "/patterns/library/" in (parsed.path or "")
+
+
+def _pattern_candidate_queries(title: str, source_site: str = "") -> list[str]:
+    normalized_site = (source_site or "").strip().lower()
+    queries = []
+    if "ravelry" in normalized_site:
+        queries.append(f'{title} crochet pattern site:ravelry.com/patterns/library')
+    elif normalized_site:
+        queries.append(f'{title} crochet pattern site:{normalized_site}')
+    queries.append(f"{title} crochet pattern")
+    return queries
+
+
+def _search_replacement_pattern_url(title: str, source_site: str, original_url: str = "") -> tuple[str, str]:
+    original_finalized = link_builder.finalize_url(original_url, link_type="pattern")
+    seen = {original_url.strip(), original_finalized}
+    for query in _pattern_candidate_queries(title, source_site=source_site):
+        results = llm.ddg_search(query, max_results=6)
+        for result in results:
+            candidate_url = (result.get("href") or result.get("url") or "").strip()
+            if not candidate_url or candidate_url in seen:
+                continue
+            if not _is_allowed_ravelry_url(candidate_url):
+                continue
+            try:
+                ok, final_url, status = _validate_url(candidate_url)
+            except Exception:
+                continue
+            if not ok or status != 200 or not _is_allowed_ravelry_url(final_url):
+                continue
+            return link_builder.finalize_url(final_url, link_type="pattern"), query
+    return "", ""
+
+
+def _set_pattern_link_mode(pattern: dict, *, direct_url: str = "", search_url: str = "", note: str = "") -> dict:
+    updated = dict(pattern)
+    updated["url"] = direct_url
+    updated["pattern_url"] = direct_url
+    updated["pattern_search_url"] = search_url
+    updated["pattern_link_status"] = "valid" if direct_url else "fallback_search"
+    updated["pattern_cta_label"] = "View Pattern" if direct_url else ("Search Pattern" if search_url else "")
+    updated["pattern_cta_url"] = direct_url or search_url
+    if note:
+        updated["link_validation_note"] = note
+    return updated
 
 
 def _validate_url(url: str, timeout_seconds: float = 4.0) -> tuple[bool, str, int | None]:
@@ -74,39 +131,119 @@ def _validate_pattern(pattern: dict) -> dict:
     validated = dict(pattern)
     url = (validated.get("url") or "").strip()
     title = validated.get("title", "crochet pattern")
-    domain = _domain(url)
+    source_site = validated.get("source_site", "")
+    fallback_search_url = _safe_pattern_search_fallback(title, source_site=source_site)
+
+    if not url:
+        print(f"    [Link Validator] MISSING: {title} -> no URL. Using search fallback.")
+        return _set_pattern_link_mode(
+            validated,
+            search_url=fallback_search_url,
+            note="missing direct pattern link; using search fallback",
+        )
+
+    if not _is_allowed_ravelry_url(url):
+        retry_url, retry_query = _search_replacement_pattern_url(title, source_site, original_url=url)
+        if retry_url:
+            print(
+                f"    [Link Validator] RETRY RAVELRY: {title} -> {retry_url} "
+                f"(query={retry_query})"
+            )
+            return _set_pattern_link_mode(
+                validated,
+                direct_url=retry_url,
+                note=f"replaced invalid ravelry URL via retry search ({retry_query})",
+            )
+        print(
+            f"    [Link Validator] INVALID RAVELRY: {title} -> {url} "
+            "missing /patterns/library/. Using search fallback."
+        )
+        return _set_pattern_link_mode(
+            validated,
+            search_url=fallback_search_url,
+            note="invalid ravelry URL replaced with search fallback",
+        )
 
     try:
         ok, final_url, status = _validate_url(url)
     except Exception as exc:
-        fallback = _search_fallback(title)
+        retry_url, retry_query = _search_replacement_pattern_url(title, source_site, original_url=url)
+        if retry_url:
+            print(
+                f"    [Link Validator] RETRY: {title} -> {retry_url} "
+                f"(reason={exc}, query={retry_query})"
+            )
+            return _set_pattern_link_mode(
+                validated,
+                direct_url=retry_url,
+                note=f"validated 200 after retry search ({retry_query})",
+            )
         print(
             f"    [Link Validator] INVALID: {title} -> {url or 'missing url'} "
-            f"({exc}). Replaced with search fallback."
+            f"({exc}). Using search fallback."
         )
-        validated["url"] = fallback
-        validated["link_validation_note"] = f"invalid link replaced ({exc})"
-        return validated
+        return _set_pattern_link_mode(
+            validated,
+            search_url=fallback_search_url,
+            note=f"invalid link replaced with search fallback ({exc})",
+        )
 
     if ok:
+        if not _is_allowed_ravelry_url(final_url):
+            retry_url, retry_query = _search_replacement_pattern_url(title, source_site, original_url=final_url)
+            if retry_url:
+                print(
+                    f"    [Link Validator] RETRY RAVELRY REDIRECT: {title} -> {retry_url} "
+                    f"(query={retry_query})"
+                )
+                return _set_pattern_link_mode(
+                    validated,
+                    direct_url=retry_url,
+                    note=f"replaced redirected ravelry URL via retry search ({retry_query})",
+                )
+            print(
+                f"    [Link Validator] INVALID RAVELRY REDIRECT: {title} -> {final_url} "
+                "missing /patterns/library/. Using search fallback."
+            )
+            return _set_pattern_link_mode(
+                validated,
+                search_url=fallback_search_url,
+                note="invalid ravelry redirect replaced with search fallback",
+            )
+        domain = _domain(final_url)
         if final_url != url:
             print(f"    [Link Validator] REPLACED: {title} -> redirected to {final_url}")
         elif domain in KNOWN_PATTERN_DOMAINS:
             print(f"    [Link Validator] OK: {title} -> {final_url}")
         else:
             print(f"    [Link Validator] OK (non-known domain): {title} -> {final_url}")
-        validated["url"] = link_builder.finalize_url(final_url, link_type="pattern")
-        validated["link_validation_note"] = "validated 200"
-        return validated
+        return _set_pattern_link_mode(
+            validated,
+            direct_url=link_builder.finalize_url(final_url, link_type="pattern"),
+            note="validated 200",
+        )
 
-    fallback = _search_fallback(title)
+    retry_url, retry_query = _search_replacement_pattern_url(title, source_site, original_url=url)
+    if retry_url:
+        print(
+            f"    [Link Validator] RETRY STATUS: {title} -> {retry_url} "
+            f"(status={status}, query={retry_query})"
+        )
+        return _set_pattern_link_mode(
+            validated,
+            direct_url=retry_url,
+            note=f"validated 200 after retry search ({retry_query})",
+        )
+
     print(
         f"    [Link Validator] INVALID: {title} -> {url or 'missing url'} "
-        f"(status={status}). Replaced with search fallback."
+        f"(status={status}). Using search fallback."
     )
-    validated["url"] = fallback
-    validated["link_validation_note"] = f"invalid link replaced (status={status})"
-    return validated
+    return _set_pattern_link_mode(
+        validated,
+        search_url=fallback_search_url,
+        note=f"invalid link replaced with search fallback (status={status})",
+    )
 
 
 def validate_patterns(patterns: list[dict]) -> list[dict]:

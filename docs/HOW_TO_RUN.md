@@ -12,6 +12,7 @@ It includes:
 - a Flask intake and admin app
 - a SQLite subscriber database
 - a multi-step orchestrator
+- a weekly competition intelligence agent
 - a scheduler for batch runs
 - an email sender
 
@@ -42,6 +43,7 @@ Important:
 - if you use Ollama, prefer `OLLAMA_MODEL=llama3.2:latest`
 - `ORIGINAL_PATTERN_COUNT=1` is the faster, more token-efficient default
 - `ORIGINAL_PATTERN_DETAIL=compact` keeps generated patterns shorter and cheaper
+- `COMPETITION_INTEL_REFRESH_DAYS=7` keeps the market snapshot on a weekly cadence
 
 ## Run The Web App
 
@@ -59,6 +61,19 @@ Then open:
 & 'C:\Users\trenp\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\python.exe' .\scheduler.py
 ```
 
+## Run Competition Intelligence Only
+
+```powershell
+& 'C:\Users\trenp\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\python.exe' .\scripts\run_competition_intel.py --force
+```
+
+Outputs are written to:
+
+- `C:\Users\trenp\crochet-pattern-agent\intel\latest\trends.json`
+- `C:\Users\trenp\crochet-pattern-agent\intel\latest\competitors.json`
+- `C:\Users\trenp\crochet-pattern-agent\intel\latest\opportunities.json`
+- `C:\Users\trenp\crochet-pattern-agent\intel\latest\keywords.json`
+
 ## Local Python Note
 
 The stub at `C:\Users\trenp\.local\bin\python3.14.exe` is not usable on this machine.
@@ -70,6 +85,7 @@ For local runs, use:
 
 - the web app serves `/` and `/admin`
 - the orchestrator prints all pipeline stages
+- the competition intelligence run writes the four JSON artifacts above
 - reports are logged under `logs\`
 - with `EMAIL_DRY_RUN=true`, the scheduler reports that it would send email without actually sending it
 

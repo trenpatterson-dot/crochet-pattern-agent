@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-04-28T11:08:23",
+  "weekly_summary": [
+    "Baby blanket and frog motifs are rising."
+  ],
+  "trends": [
+    {
+      "topic": "crochet frog",
+      "trend_type": "rising",
+      "platforms": [
+        "YouTube",
+        "Etsy"
+      ],
+      "confidence": "medium",
+      "seasonality": "evergreen",
+      "why_it_matters": "Giftable and beginner-friendly.",
+      "evidence_urls": [
+        "https://example.com/trend"
+      ]
+    }
+  ]
+}

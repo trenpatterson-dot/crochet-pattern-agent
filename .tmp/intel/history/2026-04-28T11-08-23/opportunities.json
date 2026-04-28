@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-04-28T11:08:23",
+  "product_signals": [
+    {
+      "pattern_or_use_case": "baby blanket",
+      "materials": [
+        "soft cotton yarn",
+        "5mm hook",
+        "stitch markers"
+      ],
+      "amazon_queries": [
+        "baby blanket crochet kit"
+      ],
+      "affiliate_categories": [
+        "yarn",
+        "hooks",
+        "kits"
+      ],
+      "evidence_urls": [
+        "https://example.com/product"
+      ]
+    }
+  ],
+  "opportunities": [
+    {
+      "title": "Beginner kits under $20",
+      "opportunity_type": "affiliate",
+      "gap_summary": "Few competitors frame low-cost starter bundles clearly.",
+      "why_now": "Buyer intent is visible in search phrasing.",
+      "recommended_action": "Launch starter-kit recommendation blocks.",
+      "priority": "high",
+      "supporting_signals": [
+        "buy-intent keyword language"
+      ],
+      "evidence_urls": [
+        "https://example.com/opportunity"
+      ]
+    }
+  ]
+}

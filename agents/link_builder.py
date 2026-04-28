@@ -94,6 +94,21 @@ def generate_pattern_url(pattern_name: str) -> str:
     )
 
 
+def generate_pattern_search_url(pattern_name: str, source_site: str = "") -> str:
+    query_parts = [pattern_name.strip(), "crochet pattern"]
+    normalized_site = (source_site or "").strip().lower()
+    if "ravelry" in normalized_site:
+        query_parts.append("site:ravelry.com")
+    elif normalized_site:
+        query_parts.append(f"site:{normalized_site}")
+
+    query = quote_plus(" ".join(part for part in query_parts if part))
+    return _apply_future_affiliate_params(
+        f"https://www.google.com/search?q={query}",
+        link_type="pattern",
+    )
+
+
 def material_query_normalizer(item_name: str, hook_size: str = "") -> str:
     raw = (item_name or "").strip()
     lowered = raw.lower()

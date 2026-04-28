@@ -6,7 +6,27 @@ It includes:
 - a preference form and admin interface
 - a SQLite subscriber database
 - a multi-step recommendation pipeline
+- a weekly competition intelligence pipeline
 - email delivery or dry-run email preview
+
+## Competition Intelligence Agent
+
+The repo now includes a `Competition Intelligence Agent` for StitchFlow Labs. It:
+
+- researches crochet competitors across Etsy, Ravelry, YouTube, and blogs
+- identifies weekly crochet trends and seasonal demand signals
+- generates high-intent keywords and product-buying signals
+- writes structured outputs to `intel/latest/`
+- stores each weekly snapshot in SQLite for reuse by the recommendation pipeline
+
+Artifacts written on refresh:
+
+- `trends.json`
+- `competitors.json`
+- `opportunities.json`
+- `keywords.json`
+
+The scheduler now attempts a weekly intelligence refresh before subscriber recommendation runs.
 
 ## Pilot Go-Live Status
 

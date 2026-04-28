@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import sys
@@ -10,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 def _set_env(db_path: Path) -> None:
     os.environ["DB_PATH"] = str(db_path)
+    os.environ["COMPETITION_INTEL_DIR"] = str(db_path.parent / "intel")
     os.environ["FLASK_ENV"] = "development"
     os.environ["SERVER_BASE_URL"] = "https://crochet.example.com"
     os.environ["ADMIN_PASSWORD"] = "local-admin-pass"
@@ -33,6 +35,7 @@ def main() -> int:
         _set_env(db_path)
 
         import database
+        from agents import competition_intelligence_agent
         from agents import link_builder, link_validator
         import mailer
         import orchestrator
@@ -76,6 +79,114 @@ def main() -> int:
         users = database.get_active_users()
         assert len(users) == 1, f"expected 1 active user, found {len(users)}"
         user = users[0]
+
+        original_chat = competition_intelligence_agent.llm.chat
+        original_ddg = competition_intelligence_agent.llm.ddg_search
+
+        def fake_ddg_search(query, max_results=5):
+            return [
+                {
+                    "title": f"Search result for {query}",
+                    "href": f"https://example.com/{abs(hash(query)) % 100000}",
+                    "body": "Public search snippet for testing.",
+                }
+            ]
+
+        def fake_chat(system, user_msg, use_web_search=False, max_tokens=4096):
+            if "TASK: competitors" in user_msg:
+                return json.dumps(
+                    {
+                        "generated_at": "2026-04-28T09:00:00",
+                        "competitors": [
+                            {
+                                "name": "CozyLoops Studio",
+                                "platform": "Etsy",
+                                "niche": "amigurumi",
+                                "engagement_signals": ["high review visibility"],
+                                "observed_focus": ["cute animal crochet"],
+                                "evidence_urls": ["https://example.com/etsy"],
+                                "notes": "Visible beginner-friendly listings.",
+                            }
+                        ],
+                    }
+                )
+            if "TASK: trends" in user_msg:
+                return json.dumps(
+                    {
+                        "generated_at": "2026-04-28T09:00:00",
+                        "weekly_summary": ["Baby blanket and frog motifs are rising."],
+                        "trends": [
+                            {
+                                "topic": "crochet frog",
+                                "trend_type": "rising",
+                                "platforms": ["YouTube", "Etsy"],
+                                "confidence": "medium",
+                                "seasonality": "evergreen",
+                                "why_it_matters": "Giftable and beginner-friendly.",
+                                "evidence_urls": ["https://example.com/trend"],
+                            }
+                        ],
+                    }
+                )
+            if "TASK: keywords" in user_msg:
+                return json.dumps(
+                    {
+                        "generated_at": "2026-04-28T09:00:00",
+                        "keywords": [
+                            {
+                                "keyword": "beginner crochet kit",
+                                "intent": "buy",
+                                "competition_assessment": "likely_low",
+                                "reason": "Strong purchase language.",
+                                "related_trends": ["starter kits"],
+                                "evidence_urls": ["https://example.com/keyword"],
+                            }
+                        ],
+                    }
+                )
+            if "TASK: opportunities" in user_msg:
+                return json.dumps(
+                    {
+                        "generated_at": "2026-04-28T09:00:00",
+                        "product_signals": [
+                            {
+                                "pattern_or_use_case": "baby blanket",
+                                "materials": ["soft cotton yarn", "5mm hook", "stitch markers"],
+                                "amazon_queries": ["baby blanket crochet kit"],
+                                "affiliate_categories": ["yarn", "hooks", "kits"],
+                                "evidence_urls": ["https://example.com/product"],
+                            }
+                        ],
+                        "opportunities": [
+                            {
+                                "title": "Beginner kits under $20",
+                                "opportunity_type": "affiliate",
+                                "gap_summary": "Few competitors frame low-cost starter bundles clearly.",
+                                "why_now": "Buyer intent is visible in search phrasing.",
+                                "recommended_action": "Launch starter-kit recommendation blocks.",
+                                "priority": "high",
+                                "supporting_signals": ["buy-intent keyword language"],
+                                "evidence_urls": ["https://example.com/opportunity"],
+                            }
+                        ],
+                    }
+                )
+            raise AssertionError("unexpected intelligence prompt")
+
+        competition_intelligence_agent.llm.chat = fake_chat
+        competition_intelligence_agent.llm.ddg_search = fake_ddg_search
+        try:
+            intel_summary = competition_intelligence_agent.run(force=True)
+        finally:
+            competition_intelligence_agent.llm.chat = original_chat
+            competition_intelligence_agent.llm.ddg_search = original_ddg
+
+        assert intel_summary["status"] == "ok", "competition intelligence run should succeed"
+        intel_root = Path(os.environ["COMPETITION_INTEL_DIR"])
+        for name in ("trends", "competitors", "opportunities", "keywords"):
+            assert (intel_root / "latest" / f"{name}.json").exists(), f"{name}.json should exist"
+            latest_artifact = database.get_latest_competition_artifact(name)
+            assert latest_artifact is not None, f"{name} artifact should be saved in SQLite"
 
         fake_result = {
             "user_name": user["name"],
@@ -122,6 +233,9 @@ def main() -> int:
 
         reports = database.get_reports_for_user(user["id"])
         assert reports, "scheduler dry-run did not save a report"
+        assert scheduler.run()["competition_intel"]["status"] == "skipped", (
+            "fresh intelligence snapshot should skip a second refresh"
+        )
 
         normalized_scissors = link_builder.material_query_normalizer("scissors")
         normalized_needles = link_builder.material_query_normalizer("yarn needle set")
@@ -134,6 +248,71 @@ def main() -> int:
 
         tutorial_checked = link_validator.validate_tutorial_links(fake_result["patterns"])
         assert tutorial_checked[0]["video_tutorial"] is None, "invalid tutorial should be removed"
+
+        original_validate_url = link_validator._validate_url
+        original_ddg_search = link_validator.llm.ddg_search
+        try:
+            def fake_validate_url(url, timeout_seconds=4.0):
+                if "broken-ravelry" in url:
+                    return False, url, 404
+                if "ravelry.com/groups/" in url:
+                    return True, url, 200
+                if "retry-pattern" in url:
+                    return True, url, 200
+                if "still-bad" in url:
+                    return False, url, 404
+                if "valid-pattern" in url:
+                    return True, url, 200
+                return False, url, 404
+
+            def fake_pattern_ddg(query, max_results=5):
+                if "site:ravelry.com/patterns/library" in query and "Broken Bear" in query:
+                    return [
+                        {"href": "https://www.ravelry.com/groups/still-wrong"},
+                        {"href": "https://www.ravelry.com/patterns/library/retry-pattern"},
+                    ]
+                if "No Match" in query:
+                    return [{"href": "https://example.com/still-bad"}]
+                return []
+
+            link_validator._validate_url = fake_validate_url
+            link_validator.llm.ddg_search = fake_pattern_ddg
+
+            retried = link_validator.validate_patterns([
+                {
+                    "title": "Broken Bear",
+                    "source_site": "ravelry.com",
+                    "url": "https://www.ravelry.com/groups/broken-ravelry",
+                    "skill_level": "beginner",
+                    "project_type": "amigurumi",
+                }
+            ])
+            assert retried[0]["url"] == "https://www.ravelry.com/patterns/library/retry-pattern", (
+                "ravelry retry should replace non-library or 404 URLs with a valid library URL"
+            )
+            assert retried[0]["pattern_cta_label"] == "View Pattern", (
+                "successful retry should keep the View Pattern CTA"
+            )
+
+            fallback = link_validator.validate_patterns([
+                {
+                    "title": "No Match",
+                    "source_site": "ravelry.com",
+                    "url": "https://www.ravelry.com/groups/still-bad",
+                    "skill_level": "beginner",
+                    "project_type": "amigurumi",
+                }
+            ])
+            assert fallback[0]["url"] == "", "fallback patterns should not keep an invalid direct URL"
+            assert fallback[0]["pattern_cta_label"] == "Search Pattern", (
+                "failed validation should swap to a Search Pattern fallback CTA"
+            )
+            assert "site%3Aravelry.com" in fallback[0]["pattern_search_url"], (
+                "ravelry fallback search should be scoped to site:ravelry.com"
+            )
+        finally:
+            link_validator._validate_url = original_validate_url
+            link_validator.llm.ddg_search = original_ddg_search
 
         fake_result["patterns"][0]["materials"] = [
             {
@@ -185,6 +364,27 @@ def main() -> int:
         assert "Price varies by retailer" in rendered_html, "email HTML should show retailer-safe pricing text"
         assert "Search Tutorial" not in rendered_html, "email HTML should not show tutorial fallback CTA"
         assert "Tutorial</a>" not in rendered_html, "email HTML should not show tutorial CTA when link is invalid"
+        search_fallback_html = mailer.build_html(
+            user,
+            [
+                {
+                    "title": "Fallback Pattern",
+                    "source_site": "ravelry.com",
+                    "skill_level": "beginner",
+                    "project_type": "blankets",
+                    "estimated_time": "1 hour",
+                    "why_its_perfect": "Fallback coverage.",
+                    "is_free": True,
+                    "url": "",
+                    "pattern_cta_label": "Search Pattern",
+                    "pattern_cta_url": "https://www.google.com/search?q=fallback",
+                    "pattern_search_url": "https://www.google.com/search?q=fallback",
+                    "materials": [],
+                }
+            ],
+        )
+        assert "Search Pattern</a>" in search_fallback_html, "email HTML should render Search Pattern fallback CTA"
+        assert "View Pattern</a>" not in search_fallback_html, "fallback cards should not render View Pattern CTA"
         assert "What You" in rendered_html and "Quick Buy Links" in rendered_html, (
             "email HTML should use updated materials header"
         )
@@ -194,8 +394,8 @@ def main() -> int:
             in rendered_html
         ), "email HTML should include the affiliate disclosure"
 
-        assert scheduler.run()["sent_count"] == 0, "second scheduler run should not re-send before due date"
-        assert scheduler.run()["skipped_count"] >= 1, "second scheduler run should skip not-due subscriber"
+        assert scheduler.run()["sent_count"] == 0, "later scheduler run should not re-send before due date"
+        assert scheduler.run()["skipped_count"] >= 1, "later scheduler run should skip not-due subscriber"
 
         reset_due = client.post("/admin/reset-due", data={"email": user["email"]}, headers=auth)
         assert reset_due.status_code == 302, f"/admin/reset-due returned {reset_due.status_code}"

@@ -4,12 +4,18 @@ Does not rank or filter — just gathers candidates for the Filter Agent to revi
 """
 
 import json
-from . import llm
+from . import competition_intelligence_agent, llm
 
 TRUSTED_SITES = [
     "ravelry.com", "lovecrafts.com", "allfreecrochet.com",
     "yarnspirations.com", "lionbrand.com", "garnstudio.com",
     "thesprucecrafts.com", "redheart.com", "purlsoho.com",
+]
+
+SEARCH_SEED_SITES = [
+    "ravelry.com/patterns/library",
+    "allfreecrochet.com",
+    "yarnspirations.com",
 ]
 
 SYSTEM = f"""\
@@ -46,6 +52,7 @@ def find_candidates(user: dict) -> list[dict]:
     print_note = "User wants printable patterns." if user.get("wants_printable") else ""
     interests = user.get("special_interests", "")
     budget = user.get("budget", "")
+    intel_context = competition_intelligence_agent.build_prompt_context()
 
     user_msg = f"""Search for crochet patterns matching these preferences:
 
@@ -63,8 +70,15 @@ Budget for Materials: {budget or "no limit"}
 
 Find 8 diverse candidates from trusted crochet sites."""
 
+    if intel_context:
+        user_msg += (
+            "\n\nUse this market intelligence as a secondary ranking signal when choosing "
+            "which pattern themes to search first. Keep user fit and trusted-site sourcing as the primary rule.\n"
+            f"{intel_context}"
+        )
+
     raw_results = []
-    for site in ["ravelry.com", "allfreecrochet.com", "yarnspirations.com"]:
+    for site in SEARCH_SEED_SITES:
         q = f"{skill} {projects} crochet pattern {colors} site:{site}"
         raw_results.extend(llm.ddg_search(q, max_results=4))
 

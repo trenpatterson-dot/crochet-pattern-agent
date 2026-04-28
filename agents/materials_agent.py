@@ -10,7 +10,7 @@ For each top pattern:
 
 import json
 
-from . import llm
+from . import competition_intelligence_agent, llm
 
 TRUSTED_STORES = [
     "lionbrand.com",
@@ -76,6 +76,7 @@ def enrich(user: dict, patterns: list[dict]) -> list[dict]:
 
     budget = user.get("budget", "no limit")
     wants_video = user.get("wants_video", True)
+    intel_context = competition_intelligence_agent.build_prompt_context()
 
     user_msg = f"""Enrich these {len(patterns)} crochet patterns with materials, store links, and tutorials.
 
@@ -87,6 +88,13 @@ Patterns to enrich:
 
 For each pattern: list every material needed, do not include prices or total costs, and
 {"include a YouTube tutorial when available" if wants_video else "set video_tutorial to null"}."""
+
+    if intel_context:
+        user_msg += (
+            "\n\nUse this competition intelligence to prioritize likely buy-ready materials, kit components, "
+            "and beginner-friendly notions when they genuinely fit the pattern:\n"
+            f"{intel_context}"
+        )
 
     yt_results = []
     for pattern in patterns:

@@ -3,6 +3,7 @@ Flask server for preferences, unsubscribe, and admin actions.
 """
 
 import hmac
+import json
 import os
 import pathlib
 import threading
@@ -13,6 +14,7 @@ from itsdangerous import BadSignature, URLSafeSerializer
 
 import database
 import scheduler
+from agents import competition_intelligence_agent
 
 load_dotenv(pathlib.Path(__file__).parent / ".env")
 database.init_db()
@@ -22,6 +24,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
 UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", app.secret_key)
 RUN_LOCK = threading.Lock()
+INTEL_LOCK = threading.Lock()
 
 PROJECT_TYPES = [
     ("blankets", "Blankets & Afghans"),
@@ -91,6 +94,22 @@ def _start_scheduler_run() -> bool:
         return False
 
     worker = threading.Thread(target=_scheduler_worker, daemon=True)
+    worker.start()
+    return True
+
+
+def _competition_intel_worker():
+    try:
+        competition_intelligence_agent.run(force=True)
+    finally:
+        INTEL_LOCK.release()
+
+
+def _start_competition_intel_run() -> bool:
+    if not INTEL_LOCK.acquire(blocking=False):
+        return False
+
+    worker = threading.Thread(target=_competition_intel_worker, daemon=True)
     worker.start()
     return True
 
@@ -204,6 +223,37 @@ def internal_scheduler_run():
         return Response("Scheduler is already running.", 409)
 
     return Response("Scheduler run started.", 202)
+
+
+@app.route("/admin/intel/run", methods=["POST"])
+def admin_competition_intel_run():
+    auth_error = _require_admin()
+    if auth_error:
+        return auth_error
+
+    if not _start_competition_intel_run():
+        return Response("Competition intelligence run is already active.", 409)
+
+    return redirect(url_for("admin") + "?intel_running=1")
+
+
+@app.route("/admin/intel/latest/<artifact_name>")
+def admin_competition_intel_latest(artifact_name):
+    auth_error = _require_admin()
+    if auth_error:
+        return auth_error
+
+    if artifact_name not in {"trends", "competitors", "opportunities", "keywords"}:
+        return Response("Unknown artifact.", 404)
+
+    payload = database.get_latest_competition_artifact(artifact_name)
+    if not payload:
+        return Response("No intelligence artifact found.", 404)
+
+    return Response(
+        json.dumps(payload["artifact_json"], indent=2),
+        mimetype="application/json",
+    )
 
 
 if __name__ == "__main__":

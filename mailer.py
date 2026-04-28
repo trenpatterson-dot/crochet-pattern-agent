@@ -137,6 +137,17 @@ def _found_pattern_block(p: dict, idx: int) -> str:
             f'font-size:13px;font-weight:600;">{button_text}</a></td>'
         )
 
+    pattern_cta_url = p.get("pattern_cta_url") or p.get("url") or ""
+    pattern_cta_label = p.get("pattern_cta_label") or ("View Pattern" if pattern_cta_url else "")
+    pattern_td = ""
+    if pattern_cta_url and pattern_cta_label:
+        pattern_bg = "#7B1FA2" if pattern_cta_label == "View Pattern" else "#546E7A"
+        pattern_td = (
+            f'<td><a href="{pattern_cta_url}" style="display:inline-block;padding:7px 16px;'
+            f'background:{pattern_bg};color:#fff;text-decoration:none;border-radius:5px;'
+            f'font-size:13px;font-weight:600;margin-right:8px;">{pattern_cta_label}</a></td>'
+        )
+
     return f"""
 <tr><td style="padding:0 32px 24px;">
   <table width="100%" cellpadding="0" cellspacing="0"
@@ -183,12 +194,7 @@ def _found_pattern_block(p: dict, idx: int) -> str:
       <ul style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#555;line-height:1.7;">
         {_materials_html(materials)}
       </ul>
-      <table cellpadding="0" cellspacing="0"><tr>
-        <td><a href="{p.get('url','#')}" style="display:inline-block;padding:7px 16px;
-          background:#7B1FA2;color:#fff;text-decoration:none;border-radius:5px;
-          font-size:13px;font-weight:600;margin-right:8px;">View Pattern</a></td>
-        {video_td}
-      </tr></table>
+      {f'<table cellpadding="0" cellspacing="0"><tr>{pattern_td}{video_td}</tr></table>' if pattern_td or video_td else ''}
     </td></tr>
   </table>
 </td></tr>"""
@@ -445,11 +451,18 @@ def send_report(user: dict, patterns: list[dict]) -> bool:
 
     plain = [f"Hey {user['name']}!", "", "Here are your personalized crochet patterns:", ""]
     for i, p in enumerate(found, 1):
+        direct_url = p.get("url", "")
+        fallback_url = p.get("pattern_search_url", "")
+        link_line = ""
+        if direct_url:
+            link_line = f"   Link: {direct_url}"
+        elif fallback_url:
+            link_line = f"   Search Pattern: {fallback_url}"
         plain += [
             f"{i}. {p.get('title','')} ({p.get('source_site','')})",
             f"   Skill: {p.get('skill_level','').capitalize()} | Time: {p.get('estimated_time','')}",
             f"   Why: {p.get('why_its_perfect','')}",
-            f"   Link: {p.get('url','')}",
+            link_line,
             "",
         ]
     for i, p in enumerate(originals, len(found) + 1):

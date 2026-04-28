@@ -60,6 +60,24 @@ def init_db():
                 patterns_json TEXT    NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             );
+
+            CREATE TABLE IF NOT EXISTS competition_runs (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                started_at    TEXT    NOT NULL,
+                finished_at   TEXT    NOT NULL,
+                status        TEXT    NOT NULL,
+                summary_json  TEXT    NOT NULL,
+                created_at    TEXT    DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS competition_artifacts (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id         INTEGER NOT NULL,
+                artifact_name  TEXT    NOT NULL,
+                artifact_json  TEXT    NOT NULL,
+                created_at     TEXT    DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (run_id) REFERENCES competition_runs(id)
+            );
         """)
 
 
@@ -144,6 +162,70 @@ def get_reports_for_user(user_id, limit=5):
             (user_id, limit)
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def save_competition_run(started_at, finished_at, status, summary, artifacts):
+    with get_conn() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO competition_runs (started_at, finished_at, status, summary_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                started_at,
+                finished_at,
+                status,
+                json.dumps(summary),
+            ),
+        )
+        run_id = cursor.lastrowid
+        for artifact_name, payload in artifacts.items():
+            conn.execute(
+                """
+                INSERT INTO competition_artifacts (run_id, artifact_name, artifact_json)
+                VALUES (?, ?, ?)
+                """,
+                (run_id, artifact_name, json.dumps(payload)),
+            )
+    return run_id
+
+
+def get_latest_competition_run():
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT *
+            FROM competition_runs
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+    if not row:
+        return None
+    data = dict(row)
+    data["summary_json"] = json.loads(data["summary_json"])
+    return data
+
+
+def get_latest_competition_artifact(artifact_name):
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT artifact_json, created_at
+            FROM competition_artifacts
+            WHERE artifact_name=?
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """,
+            (artifact_name,),
+        ).fetchone()
+    if not row:
+        return None
+    return {
+        "artifact_name": artifact_name,
+        "artifact_json": json.loads(row["artifact_json"]),
+        "created_at": row["created_at"],
+    }
 
 
 def _deserialize(user: dict) -> dict:

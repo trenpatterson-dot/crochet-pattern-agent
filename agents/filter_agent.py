@@ -9,7 +9,7 @@ Receives raw candidates from the Search Agent and applies expert crochet judgmen
 """
 
 import json
-from . import llm
+from . import competition_intelligence_agent, llm
 
 SYSTEM = """\
 You are a crochet expert.
@@ -51,6 +51,7 @@ def curate(user: dict, candidates: list[dict]) -> list[dict]:
     colors = user.get("color_preferences", "no preference")
     aesthetic = user.get("aesthetic", "any")
     budget = user.get("budget", "any")
+    intel_context = competition_intelligence_agent.build_prompt_context()
 
     user_msg = f"""User Preferences:
 Name: {user['name']}
@@ -70,6 +71,12 @@ Pattern Candidates to evaluate:
 {json.dumps(candidates, indent=2)}
 
 Apply your expert crochet judgment. Remove poor fits. Rank the top 3 found patterns."""
+
+    if intel_context:
+        user_msg += (
+            "\n\nMarket intelligence to use as a tie-breaker only after user fit, quality, and compliance:"
+            f"\n{intel_context}"
+        )
 
     raw = llm.chat(SYSTEM, user_msg, max_tokens=1800)
     data = llm.parse_json(raw)

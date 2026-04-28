@@ -15,6 +15,7 @@ load_dotenv(pathlib.Path(__file__).parent / ".env")
 import database
 import mailer
 import orchestrator
+from agents import competition_intelligence_agent
 
 LOG_DIR = Path(__file__).parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -77,6 +78,7 @@ def run() -> dict:
     error_summary = []
     sent = failed = skipped = 0
     lock_fd = _acquire_lock()
+    intel_summary = None
 
     with open(log_path, "w", encoding="utf-8") as f:
         if lock_fd is None:
@@ -106,6 +108,16 @@ def run() -> dict:
             log(f"started_at={started_at.isoformat(timespec='seconds')}", f)
             log(f"dry_run={dry_run}", f)
             log("=" * 55, f)
+
+            try:
+                intel_summary = competition_intelligence_agent.run(force=False)
+                log(
+                    f"Competition intel status={intel_summary.get('status', 'unknown')}",
+                    f,
+                )
+            except Exception as exc:
+                error_summary.append(f"competition_intel:{exc}")
+                log(f"Competition intel refresh failed: {exc}", f)
 
             if not users:
                 skipped += 1
@@ -163,6 +175,7 @@ def run() -> dict:
             "failed_count": failed,
             "skipped_count": skipped,
             "dry_run": dry_run,
+            "competition_intel": intel_summary,
             "error_summary": error_summary,
             "log_path": str(log_path),
         }
