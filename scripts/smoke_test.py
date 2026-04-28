@@ -73,8 +73,16 @@ def main() -> int:
                 "wants_video": "on",
                 "free_only": "on",
             },
+            follow_redirects=False,
         )
-        assert subscribe.status_code == 200, f"/subscribe returned {subscribe.status_code}"
+        assert subscribe.status_code == 303, f"/subscribe returned {subscribe.status_code}"
+        assert subscribe.headers["Location"].endswith("/success"), "subscribe should redirect to /success after save"
+
+        success = client.get("/success")
+        assert success.status_code == 200, f"/success returned {success.status_code}"
+        blocked_success = client.get("/success", follow_redirects=False)
+        assert blocked_success.status_code == 302, "direct /success without session should redirect to the form"
+        assert blocked_success.headers["Location"].endswith("/"), "direct /success should redirect to /"
 
         users = database.get_active_users()
         assert len(users) == 1, f"expected 1 active user, found {len(users)}"

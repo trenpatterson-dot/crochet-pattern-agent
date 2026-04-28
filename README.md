@@ -26,6 +26,12 @@ Artifacts written on refresh:
 - `opportunities.json`
 - `keywords.json`
 
+Stable handoff path for `affiliate-supervisor`:
+
+- `C:\Users\trenp\crochet-pattern-agent\intel\latest\`
+
+If `COMPETITION_INTEL_DIR` points somewhere else, such as `.tmp\intel`, the agent now still syncs the latest JSON artifacts to `intel\latest` for downstream readers.
+
 The scheduler now attempts a weekly intelligence refresh before subscriber recommendation runs.
 
 ## Pilot Go-Live Status

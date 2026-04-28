@@ -153,6 +153,11 @@
     ✅ Selected subscriber marked due now — run one controlled test pass when ready.
   </div>
   {% endif %}
+  {% if storage_debug %}
+  <div class="alert">
+    Debug: {{ storage_debug.total_users }} stored subscribers, {{ storage_debug.active_users }} active, {{ storage_debug.inactive_users }} inactive, {{ storage_debug.total_reports }} saved reports.
+  </div>
+  {% endif %}
 
   <!-- Stats -->
   <div class="stats">
@@ -163,6 +168,10 @@
     <div class="stat-card">
       <div class="num">{{ users | length }}</div>
       <div class="lbl">Total Signups</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">{{ storage_debug.total_reports if storage_debug else 0 }}</div>
+      <div class="lbl">Saved Reports</div>
     </div>
     <div class="stat-card">
       <div class="num">{{ users | selectattr('free_only', 'equalto', 1) | list | length }}</div>
@@ -188,6 +197,7 @@
         <th>Yarn</th>
         <th>Time</th>
         <th>Free Only</th>
+        <th>Updated</th>
         <th>Last Report</th>
         <th>Status</th>
         <th>Actions</th>
@@ -215,6 +225,9 @@
         </td>
         <td style="white-space:nowrap;">{{ u.time_commitment.replace('_', ' ') }}</td>
         <td style="text-align:center;">{{ '✅' if u.free_only else '—' }}</td>
+        <td style="color:#888;font-size:12px;">
+          {{ (u.updated_at or u.created_at)[:19].replace('T', ' ') if (u.updated_at or u.created_at) else 'Unknown' }}
+        </td>
         <td style="color:#888;font-size:12px;">
           {{ u.last_report_sent[:10] if u.last_report_sent else 'Never' }}
         </td>

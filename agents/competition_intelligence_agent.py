@@ -19,6 +19,7 @@ ARTIFACT_NAMES = ("trends", "competitors", "opportunities", "keywords")
 REFRESH_DAYS = int(os.getenv("COMPETITION_INTEL_REFRESH_DAYS", "7"))
 ROOT = Path(__file__).resolve().parent.parent
 INTEL_ROOT = Path(os.getenv("COMPETITION_INTEL_DIR", ROOT / "intel"))
+STABLE_INTEL_ROOT = ROOT / "intel"
 
 SYSTEM_PROFILE = """
 System under analysis: StitchFlow Labs crochet recommendation platform.
@@ -58,6 +59,12 @@ def _latest_dir() -> Path:
     return path
 
 
+def _stable_latest_dir() -> Path:
+    path = STABLE_INTEL_ROOT / "latest"
+    _ensure_dir(path)
+    return path
+
+
 def _history_dir() -> Path:
     path = INTEL_ROOT / "history"
     _ensure_dir(path)
@@ -84,6 +91,14 @@ def _read_latest_file(name: str) -> dict | None:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
+
+
+def _sync_latest_exports(artifacts: dict[str, dict]) -> str:
+    stable_dir = _stable_latest_dir()
+    for name, payload in artifacts.items():
+        if isinstance(payload, dict):
+            _write_json(stable_dir / f"{name}.json", payload)
+    return str(stable_dir)
 
 
 def _search_evidence(queries: list[str], max_results: int = 5) -> list[dict]:
@@ -382,10 +397,13 @@ def run(force: bool = False) -> dict:
     database.init_db()
     if not refresh_due(force=force):
         latest = database.get_latest_competition_run()
+        artifacts = load_latest_artifacts()
+        stable_dir = _sync_latest_exports(artifacts) if artifacts else str(_stable_latest_dir())
         return {
             "status": "skipped",
             "reason": "fresh_snapshot_exists",
             "latest_run": latest,
+            "stable_output_dir": stable_dir,
         }
 
     started_at = _timestamp()
@@ -406,6 +424,7 @@ def run(force: bool = False) -> dict:
     for name, payload in artifacts.items():
         _write_json(_latest_dir() / f"{name}.json", payload)
         _write_json(run_dir / f"{name}.json", payload)
+    stable_dir = _sync_latest_exports(artifacts)
 
     finished_at = _timestamp()
     summary = {
@@ -417,6 +436,7 @@ def run(force: bool = False) -> dict:
         "keyword_count": len(keywords.get("keywords", [])),
         "opportunity_count": len(opportunities.get("opportunities", [])),
         "output_dir": str(_latest_dir()),
+        "stable_output_dir": stable_dir,
         "history_dir": str(run_dir),
     }
     database.save_competition_run(

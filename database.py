@@ -50,6 +50,7 @@ def init_db():
                 special_interests  TEXT    DEFAULT '',
                 active             INTEGER DEFAULT 1,
                 created_at         TEXT    DEFAULT CURRENT_TIMESTAMP,
+                updated_at         TEXT    DEFAULT CURRENT_TIMESTAMP,
                 last_report_sent   TEXT
             );
 
@@ -79,18 +80,24 @@ def init_db():
                 FOREIGN KEY (run_id) REFERENCES competition_runs(id)
             );
         """)
+        _ensure_column(conn, "users", "updated_at", "TEXT")
 
 
 def upsert_user(name, email, skill_level, project_types, yarn_weights,
                 time_commitment, color_preferences, aesthetic, budget,
                 free_only, wants_video, wants_printable, special_interests):
     with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT id, active, created_at, updated_at FROM users WHERE email=?",
+            (email,),
+        ).fetchone()
+        now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         conn.execute("""
             INSERT INTO users
                 (name, email, skill_level, project_types, yarn_weights,
                  time_commitment, color_preferences, aesthetic, budget,
-                 free_only, wants_video, wants_printable, special_interests)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 free_only, wants_video, wants_printable, special_interests, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(email) DO UPDATE SET
                 name=excluded.name,
                 skill_level=excluded.skill_level,
@@ -104,6 +111,7 @@ def upsert_user(name, email, skill_level, project_types, yarn_weights,
                 wants_video=excluded.wants_video,
                 wants_printable=excluded.wants_printable,
                 special_interests=excluded.special_interests,
+                updated_at=excluded.updated_at,
                 active=1
         """, (
             name, email, skill_level,
@@ -113,7 +121,23 @@ def upsert_user(name, email, skill_level, project_types, yarn_weights,
             1 if wants_video else 0,
             1 if wants_printable else 0,
             special_interests,
+            now,
         ))
+        saved = conn.execute(
+            "SELECT id, active, created_at, updated_at FROM users WHERE email=?",
+            (email,),
+        ).fetchone()
+        total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        active_users = conn.execute("SELECT COUNT(*) FROM users WHERE active=1").fetchone()[0]
+    return {
+        "action": "updated" if existing else "created",
+        "user_id": saved["id"] if saved else None,
+        "active": int(saved["active"]) if saved else 0,
+        "created_at": saved["created_at"] if saved else None,
+        "updated_at": saved["updated_at"] if saved else now,
+        "total_users": total_users,
+        "active_users": active_users,
+    }
 
 
 def get_active_users():
@@ -125,9 +149,24 @@ def get_active_users():
 def get_all_users():
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM users ORDER BY created_at DESC"
+            "SELECT * FROM users ORDER BY COALESCE(updated_at, created_at) DESC, id DESC"
         ).fetchall()
     return [_deserialize(dict(r)) for r in rows]
+
+
+def get_storage_debug_summary():
+    with get_conn() as conn:
+        total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        active_users = conn.execute("SELECT COUNT(*) FROM users WHERE active=1").fetchone()[0]
+        inactive_users = conn.execute("SELECT COUNT(*) FROM users WHERE active=0").fetchone()[0]
+        total_reports = conn.execute("SELECT COUNT(*) FROM reports").fetchone()[0]
+    return {
+        "db_path": str(DB_PATH),
+        "total_users": total_users,
+        "active_users": active_users,
+        "inactive_users": inactive_users,
+        "total_reports": total_reports,
+    }
 
 
 def deactivate_user(email):
@@ -232,3 +271,9 @@ def _deserialize(user: dict) -> dict:
     user["project_types"] = json.loads(user["project_types"])
     user["yarn_weights"] = json.loads(user["yarn_weights"])
     return user
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, column_type: str):
+    columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
