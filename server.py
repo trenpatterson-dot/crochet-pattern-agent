@@ -1,0 +1,213 @@
+"""
+Flask server for preferences, unsubscribe, and admin actions.
+"""
+
+import hmac
+import os
+import pathlib
+import threading
+
+from dotenv import load_dotenv
+from flask import Flask, Response, redirect, render_template, request, url_for
+from itsdangerous import BadSignature, URLSafeSerializer
+
+import database
+import scheduler
+
+load_dotenv(pathlib.Path(__file__).parent / ".env")
+database.init_db()
+
+app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
+UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", app.secret_key)
+RUN_LOCK = threading.Lock()
+
+PROJECT_TYPES = [
+    ("blankets", "Blankets & Afghans"),
+    ("hats_scarves", "Hats & Scarves"),
+    ("amigurumi", "Toys & Amigurumi"),
+    ("clothing", "Clothing & Wearables"),
+    ("bags", "Bags & Totes"),
+    ("home_decor", "Home Decor"),
+    ("baby", "Baby Items"),
+    ("holiday", "Holiday & Seasonal"),
+    ("accessories", "Accessories (gloves, shawls, etc.)"),
+]
+
+YARN_TYPES = [
+    ("cotton", "Cotton"),
+    ("acrylic", "Acrylic"),
+    ("wool", "Wool"),
+    ("blend", "Blends"),
+    ("any", "No preference"),
+]
+
+AESTHETICS = ["Minimal", "Cozy", "Modern", "Cute", "Seasonal", "Boho", "Classic"]
+BUDGETS = ["$10-$25", "$25-$50", "$50+", "No limit"]
+
+
+def _is_production() -> bool:
+    return os.getenv("FLASK_ENV", "production").strip().lower() == "production"
+
+
+def _admin_setup_error() -> Response | None:
+    if ADMIN_PASSWORD:
+        return None
+
+    message = "ADMIN_PASSWORD is not configured."
+    if _is_production():
+        message += " Set ADMIN_PASSWORD before exposing admin routes in production."
+        return Response(message, 500)
+
+    return Response(message + " Configure it locally to use admin routes.", 503)
+
+
+def _require_admin():
+    setup_error = _admin_setup_error()
+    if setup_error:
+        return setup_error
+
+    supplied = request.authorization.password if request.authorization else ""
+    if hmac.compare_digest(supplied, ADMIN_PASSWORD):
+        return None
+
+    return Response(
+        "Authentication required",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Crochet Admin"'},
+    )
+
+
+def _scheduler_worker():
+    try:
+        scheduler.run()
+    finally:
+        RUN_LOCK.release()
+
+
+def _start_scheduler_run() -> bool:
+    if not RUN_LOCK.acquire(blocking=False):
+        return False
+
+    worker = threading.Thread(target=_scheduler_worker, daemon=True)
+    worker.start()
+    return True
+
+
+def _load_unsubscribe_email(token: str) -> str | None:
+    if not token:
+        return None
+
+    serializer = URLSafeSerializer(UNSUBSCRIBE_SECRET, salt="unsubscribe")
+    try:
+        payload = serializer.loads(token)
+    except BadSignature:
+        return None
+    return str(payload.get("email", "")).strip().lower() or None
+
+
+@app.route("/")
+def index():
+    return render_template(
+        "form.html",
+        project_types=PROJECT_TYPES,
+        yarn_types=YARN_TYPES,
+        aesthetics=AESTHETICS,
+        budgets=BUDGETS,
+    )
+
+
+@app.route("/subscribe", methods=["POST"])
+def subscribe():
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+
+    if not name or not email:
+        return render_template(
+            "form.html",
+            project_types=PROJECT_TYPES,
+            yarn_types=YARN_TYPES,
+            aesthetics=AESTHETICS,
+            budgets=BUDGETS,
+            error="Name and email are required.",
+        )
+
+    database.upsert_user(
+        name=name,
+        email=email,
+        skill_level=request.form.get("skill_level", "beginner"),
+        project_types=request.form.getlist("project_types") or ["any"],
+        yarn_weights=request.form.getlist("yarn_weights") or ["any"],
+        time_commitment=request.form.get("time_commitment", "any"),
+        color_preferences=request.form.get("color_preferences", "").strip(),
+        aesthetic=request.form.get("aesthetic", ""),
+        budget=request.form.get("budget", ""),
+        free_only="free_only" in request.form,
+        wants_video="wants_video" in request.form,
+        wants_printable="wants_printable" in request.form,
+        special_interests=request.form.get("special_interests", "").strip(),
+    )
+    return render_template("success.html", name=name)
+
+
+@app.route("/unsubscribe")
+def unsubscribe():
+    email = _load_unsubscribe_email(request.args.get("token", ""))
+    if email:
+        database.deactivate_user(email)
+    return render_template("unsubscribed.html", email=email)
+
+
+@app.route("/admin")
+def admin():
+    auth_error = _require_admin()
+    if auth_error:
+        return auth_error
+    users = database.get_all_users()
+    return render_template("admin.html", users=users)
+
+
+@app.route("/admin/reset-due", methods=["POST"])
+def admin_reset_due():
+    auth_error = _require_admin()
+    if auth_error:
+        return auth_error
+
+    email = request.form.get("email", "").strip().lower()
+    if not email:
+        return Response("Subscriber email is required.", 400)
+
+    database.reset_user_due_now(email)
+    return redirect(url_for("admin") + "?due_reset=1")
+
+
+@app.route("/admin/run", methods=["POST"])
+def admin_run():
+    auth_error = _require_admin()
+    if auth_error:
+        return auth_error
+
+    if not _start_scheduler_run():
+        return Response("Scheduler is already running.", 409)
+
+    return redirect(url_for("admin") + "?running=1")
+
+
+@app.route("/internal/scheduler/run", methods=["POST"])
+def internal_scheduler_run():
+    auth_error = _require_admin()
+    if auth_error:
+        return auth_error
+
+    if not _start_scheduler_run():
+        return Response("Scheduler is already running.", 409)
+
+    return Response("Scheduler run started.", 202)
+
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", os.getenv("FLASK_PORT", 5050)))
+    debug = os.getenv("FLASK_ENV", "production") == "development"
+    print(f"Crochet Pattern Finder -> http://localhost:{port}")
+    app.run(host="0.0.0.0", port=port, debug=debug)

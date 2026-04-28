@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unsubscribed</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #F3E5F5 0%, #EDE7F6 50%, #E8EAF6 100%);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      padding: 24px;
+    }
+    .card {
+      max-width: 440px;
+      width: 100%;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(123, 79, 158, 0.12);
+      overflow: hidden;
+      text-align: center;
+    }
+    .card-header {
+      background: linear-gradient(135deg, #546E7A, #78909C);
+      padding: 36px 32px 28px;
+      color: #fff;
+    }
+    .emoji { font-size: 48px; display: block; margin-bottom: 12px; }
+    h1 { font-size: 22px; margin-bottom: 6px; }
+    .subtitle { font-size: 13px; opacity: 0.85; }
+    .card-body { padding: 28px 32px 32px; }
+    p { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 20px; }
+    .rejoin-link {
+      display: inline-block;
+      padding: 11px 24px;
+      background: linear-gradient(135deg, #6A1B9A, #9C27B0);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .rejoin-link:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <span class="emoji">👋</span>
+      <h1>You've been unsubscribed</h1>
+      <p class="subtitle">{{ email }}</p>
+    </div>
+    <div class="card-body">
+      <p>You won't receive any more crochet pattern emails. We're sorry to see you go!<br><br>
+         Changed your mind? You can re-subscribe any time.</p>
+      <a href="/" class="rejoin-link">🧶 Re-subscribe</a>
+    </div>
+  </div>
+</body>
+</html>

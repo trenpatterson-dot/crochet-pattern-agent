@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧶 Admin — Crochet Pattern Finder</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #F5F0FA;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #333;
+      padding: 24px 16px 48px;
+    }
+    .header {
+      background: linear-gradient(135deg, #6A1B9A, #AB47BC);
+      color: #fff;
+      padding: 24px 32px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header h1 { font-size: 22px; }
+    .header p { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+    .run-btn {
+      padding: 10px 22px;
+      background: #fff;
+      color: #6A1B9A;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .run-btn:hover { opacity: 0.85; }
+    .alert {
+      background: #E8F5E9;
+      border: 1px solid #A5D6A7;
+      color: #2E7D32;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .stat-card {
+      flex: 1;
+      min-width: 130px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px 20px;
+      box-shadow: 0 2px 8px rgba(123,79,158,0.08);
+      text-align: center;
+    }
+    .stat-card .num { font-size: 32px; font-weight: 700; color: #6A1B9A; }
+    .stat-card .lbl { font-size: 12px; color: #888; margin-top: 2px; }
+    table {
+      width: 100%;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(123,79,158,0.08);
+      border-collapse: collapse;
+      overflow: hidden;
+    }
+    thead tr { background: linear-gradient(135deg, #6A1B9A, #9C27B0); color: #fff; }
+    th { padding: 12px 16px; font-size: 12px; text-transform: uppercase;
+         letter-spacing: 0.6px; text-align: left; font-weight: 600; }
+    td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #F3E5F5;
+         vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #FDFBFF; }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-active { background: #E8F5E9; color: #2E7D32; }
+    .badge-inactive { background: #FFEBEE; color: #C62828; }
+    .badge-beginner { background: #E8F5E9; color: #2E7D32; }
+    .badge-intermediate { background: #FFF3E0; color: #E65100; }
+    .badge-advanced { background: #F3E5F5; color: #6A1B9A; }
+    .tag {
+      display: inline-block;
+      background: #EDE7F6;
+      color: #4A235A;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      margin: 2px;
+    }
+    .empty {
+      text-align: center;
+      padding: 48px;
+      color: #aaa;
+    }
+    .empty .icon { font-size: 48px; display: block; margin-bottom: 12px; }
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #4A235A;
+      margin-bottom: 12px;
+    }
+    .action-btn {
+      padding: 7px 10px;
+      background: linear-gradient(135deg, #F57F17, #FBC02D);
+      color: #fff;
+      border: 1px solid #F9A825;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .action-btn:hover { filter: brightness(0.96); }
+    .action-cell { white-space: nowrap; }
+    @media (max-width: 700px) {
+      th, td { padding: 8px 10px; }
+      .header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <h1>🧶 Admin Dashboard</h1>
+      <p>Crochet Pattern Finder — Subscriber Management</p>
+    </div>
+    <form method="POST" action="/admin/run">
+      <button type="submit" class="run-btn">▶ Run Now (All Users)</button>
+    </form>
+  </div>
+
+  {% if request.args.get('running') %}
+  <div class="alert">
+    ✅ Batch run started in the background — check <code>logs/</code> for results.
+  </div>
+  {% endif %}
+  {% if request.args.get('due_reset') %}
+  <div class="alert">
+    ✅ Selected subscriber marked due now — run one controlled test pass when ready.
+  </div>
+  {% endif %}
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="num">{{ users | selectattr('active', 'equalto', 1) | list | length }}</div>
+      <div class="lbl">Active Subscribers</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">{{ users | length }}</div>
+      <div class="lbl">Total Signups</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">{{ users | selectattr('free_only', 'equalto', 1) | list | length }}</div>
+      <div class="lbl">Free-Only Subscribers</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">{{ users | selectattr('active', 'equalto', 0) | list | length }}</div>
+      <div class="lbl">Unsubscribed</div>
+    </div>
+  </div>
+
+  <!-- Subscriber Table -->
+  <div class="section-title">All Subscribers</div>
+
+  {% if users %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Skill</th>
+        <th>Projects</th>
+        <th>Yarn</th>
+        <th>Time</th>
+        <th>Free Only</th>
+        <th>Last Report</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td><strong>{{ u.name }}</strong></td>
+        <td style="color:#666;">{{ u.email }}</td>
+        <td>
+          <span class="badge badge-{{ u.skill_level }}">
+            {{ u.skill_level | capitalize }}
+          </span>
+        </td>
+        <td>
+          {% for pt in u.project_types %}
+          <span class="tag">{{ pt.replace('_', ' ') }}</span>
+          {% endfor %}
+        </td>
+        <td>
+          {% for yw in u.yarn_weights %}
+          <span class="tag">{{ yw }}</span>
+          {% endfor %}
+        </td>
+        <td style="white-space:nowrap;">{{ u.time_commitment.replace('_', ' ') }}</td>
+        <td style="text-align:center;">{{ '✅' if u.free_only else '—' }}</td>
+        <td style="color:#888;font-size:12px;">
+          {{ u.last_report_sent[:10] if u.last_report_sent else 'Never' }}
+        </td>
+        <td>
+          <span class="badge {{ 'badge-active' if u.active else 'badge-inactive' }}">
+            {{ 'Active' if u.active else 'Off' }}
+          </span>
+        </td>
+        <td class="action-cell">
+          <form method="POST" action="/admin/reset-due">
+            <input type="hidden" name="email" value="{{ u.email }}">
+            <button type="submit" class="action-btn">Mark Due Now</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <span class="icon">🧶</span>
+    No subscribers yet — share the sign-up form to get started!
+  </div>
+  {% endif %}
+
+</body>
+</html>

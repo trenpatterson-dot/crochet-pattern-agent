@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You're signed up! 🧶</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #F3E5F5 0%, #EDE7F6 50%, #E8EAF6 100%);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      padding: 24px;
+    }
+    .card {
+      max-width: 480px;
+      width: 100%;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(123, 79, 158, 0.12);
+      overflow: hidden;
+      text-align: center;
+    }
+    .card-header {
+      background: linear-gradient(135deg, #6A1B9A, #AB47BC);
+      padding: 40px 32px 32px;
+      color: #fff;
+    }
+    .emoji { font-size: 56px; display: block; margin-bottom: 16px; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    .subtitle { font-size: 14px; opacity: 0.85; line-height: 1.5; }
+    .card-body { padding: 32px; }
+    .info-box {
+      background: #F3E5F5;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+    .info-box p { font-size: 14px; color: #4A235A; line-height: 1.6; }
+    .info-box strong { color: #6A1B9A; }
+    .back-link {
+      display: inline-block;
+      padding: 12px 28px;
+      background: linear-gradient(135deg, #6A1B9A, #9C27B0);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .back-link:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <span class="emoji">🎉</span>
+      <h1>You're all set, {{ name }}!</h1>
+      <p class="subtitle">Your crochet preferences have been saved.<br>
+        Your first picks are on their way!</p>
+    </div>
+    <div class="card-body">
+      <div class="info-box">
+        <p>📬 <strong>Expect your first email</strong> the next time the batch runs
+          (every two weeks).</p>
+        <p style="margin-top:10px;">🧵 Each report includes <strong>top 5 curated patterns</strong>
+          matched to your skill level, materials list, and YouTube tutorial links.</p>
+        <p style="margin-top:10px;">✏️ Want to update your preferences? Just
+          <strong>re-submit the form</strong> with the same email — it'll update automatically.</p>
+      </div>
+      <a href="/" class="back-link">← Back to Form</a>
+    </div>
+  </div>
+</body>
+</html>

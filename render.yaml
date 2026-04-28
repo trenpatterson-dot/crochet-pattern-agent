@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: crochet-pattern-finder
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    healthCheckPath: /
+    disk:
+      name: app-data
+      mountPath: /app/data
+      sizeGB: 10
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: ADMIN_PASSWORD
+        sync: false          # required: do not expose /admin without this
+      - key: ANTHROPIC_API_KEY
+        sync: false          # you paste this in the Render dashboard
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: FLASK_SECRET_KEY
+        generateValue: true  # Render auto-generates a secure value
+      - key: UNSUBSCRIBE_SECRET
+        generateValue: true
+      - key: SERVER_BASE_URL
+        sync: false          # paste your Render public URL, e.g. https://crochet-finder.onrender.com
+      - key: EMAIL_DRY_RUN
+        value: "true"        # keep true until validation is complete
+      - key: DB_PATH
+        value: /app/data/crochet_agent.db
+
+  - type: cron
+    name: crochet-pattern-scheduler
+    runtime: python
+    plan: starter
+    schedule: "0 14 * * 1"  # Render cron cannot express exact every-14-days cadence; app enforces 14-day due checks per subscriber
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/render_scheduler_trigger.py
+    envVars:
+      - key: ADMIN_PASSWORD
+        fromService:
+          name: crochet-pattern-finder
+          type: web
+          envVarKey: ADMIN_PASSWORD
+      - key: SCHEDULER_TRIGGER_BASE_URL
+        fromService:
+          name: crochet-pattern-finder
+          type: web
+          property: hostport

@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧶 Crochet Pattern Finder — Sign Up</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #F3E5F5 0%, #EDE7F6 40%, #E8EAF6 100%);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #333;
+      padding: 32px 16px 48px;
+    }
+
+    .card {
+      max-width: 700px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 6px 32px rgba(106, 27, 154, 0.13);
+      overflow: hidden;
+    }
+
+    .card-header {
+      background: linear-gradient(135deg, #4A148C, #9C27B0, #CE93D8);
+      padding: 40px 44px 32px;
+      text-align: center;
+      color: #fff;
+    }
+    .card-header .yarn { font-size: 56px; line-height: 1; display: block; }
+    .card-header h1 { font-size: 28px; margin: 14px 0 6px; letter-spacing: 0.5px; font-weight: 700; }
+    .card-header p { font-size: 14px; opacity: 0.88; line-height: 1.6; }
+
+    .card-body { padding: 36px 44px 44px; }
+
+    .section {
+      margin-bottom: 32px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #9C27B0;
+      margin-bottom: 14px;
+      padding-bottom: 7px;
+      border-bottom: 2px solid #F3E5F5;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-label .icon { font-size: 16px; }
+
+    .field-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #4A235A;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    textarea {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #D1C4E9;
+      border-radius: 9px;
+      font-size: 14px;
+      color: #333;
+      background: #FDFBFF;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      font-family: inherit;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #9C27B0;
+      box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.1);
+    }
+
+    textarea { resize: vertical; min-height: 72px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* Skill level cards */
+    .skill-group { display: flex; gap: 10px; }
+
+    .skill-card {
+      flex: 1;
+      padding: 16px 10px 14px;
+      border: 2px solid #D1C4E9;
+      border-radius: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #FDFBFF;
+      user-select: none;
+    }
+    .skill-card input { display: none; }
+    .skill-card .s-icon { font-size: 28px; display: block; margin-bottom: 5px; }
+    .skill-card .s-label { font-size: 14px; font-weight: 700; color: #4A235A; }
+    .skill-card .s-desc { font-size: 11px; color: #999; margin-top: 3px; line-height: 1.3; }
+    .skill-card:hover { border-color: #9C27B0; background: #F8F0FF; }
+    .skill-card:has(input:checked) {
+      border-color: #7B1FA2;
+      background: linear-gradient(135deg, #F3E5F5, #EDE7F6);
+      box-shadow: 0 2px 10px rgba(123, 31, 162, 0.15);
+    }
+    .skill-card:has(input:checked) .s-label { color: #4A148C; }
+
+    /* Chip (checkbox/radio pills) */
+    .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 14px;
+      border: 1.5px solid #D1C4E9;
+      border-radius: 20px;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s;
+      background: #FDFBFF;
+      color: #4A235A;
+      font-family: inherit;
+    }
+    .chip input { display: none; }
+    .chip:hover { border-color: #9C27B0; background: #F3E5F5; }
+    .chip:has(input:checked) {
+      background: #7B1FA2;
+      border-color: #7B1FA2;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Aesthetic radio cards */
+    .aesthetic-group { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .aesthetic-chip {
+      padding: 8px 16px;
+      border: 1.5px solid #D1C4E9;
+      border-radius: 20px;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s;
+      background: #FDFBFF;
+      color: #4A235A;
+    }
+    .aesthetic-chip input { display: none; }
+    .aesthetic-chip:hover { border-color: #9C27B0; background: #F3E5F5; }
+    .aesthetic-chip:has(input:checked) {
+      background: linear-gradient(135deg, #6A1B9A, #AB47BC);
+      border-color: #6A1B9A;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Budget cards */
+    .budget-group { display: flex; gap: 10px; flex-wrap: wrap; }
+    .budget-card {
+      flex: 1;
+      min-width: 100px;
+      padding: 12px 10px;
+      border: 2px solid #D1C4E9;
+      border-radius: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #FDFBFF;
+    }
+    .budget-card input { display: none; }
+    .budget-card .b-icon { font-size: 20px; display: block; margin-bottom: 3px; }
+    .budget-card .b-label { font-size: 13px; font-weight: 700; color: #4A235A; }
+    .budget-card .b-desc { font-size: 10px; color: #999; margin-top: 2px; }
+    .budget-card:hover { border-color: #9C27B0; background: #F8F0FF; }
+    .budget-card:has(input:checked) {
+      border-color: #7B1FA2;
+      background: linear-gradient(135deg, #F3E5F5, #EDE7F6);
+    }
+    .budget-card:has(input:checked) .b-label { color: #4A148C; }
+
+    /* Toggle */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #F8F0FF;
+      border-radius: 9px;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    .toggle-row input { display: none; }
+    .toggle-track {
+      width: 46px; height: 25px;
+      background: #D1C4E9;
+      border-radius: 13px;
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .toggle-row:has(input:checked) .toggle-track { background: #7B1FA2; }
+    .toggle-thumb {
+      width: 19px; height: 19px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 3px; left: 3px;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    .toggle-row:has(input:checked) .toggle-thumb { transform: translateX(21px); }
+    .toggle-text { font-size: 14px; color: #4A235A; font-weight: 700; }
+    .toggle-sub { font-size: 11px; color: #999; margin-top: 1px; }
+
+    .error-msg {
+      background: #FCE4EC;
+      border: 1px solid #F48FB1;
+      color: #B71C1C;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #4A148C, #9C27B0);
+      color: #fff;
+      border: none;
+      border-radius: 11px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-top: 8px;
+      font-family: inherit;
+    }
+    .submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .submit-btn:active { transform: translateY(0); }
+
+    .hint { font-size: 11px; color: #aaa; margin-top: 5px; }
+
+    hr.div { border: none; border-top: 1.5px solid #F3E5F5; margin: 28px 0; }
+
+    @media (max-width: 580px) {
+      .card-body { padding: 24px 20px 32px; }
+      .card-header { padding: 30px 20px 24px; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .skill-group { flex-direction: column; }
+      .budget-group { grid-template-columns: 1fr 1fr; display: grid; }
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+
+  <div class="card-header">
+    <span class="yarn">🧶</span>
+    <h1>Crochet Pattern Finder</h1>
+    <p>Tell us your style — we'll send you 5 hand-picked patterns<br>
+       every two weeks, right to your inbox.</p>
+  </div>
+
+  <div class="card-body">
+
+    {% if error %}
+    <div class="error-msg">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/subscribe">
+
+      <!-- ── Contact ──────────────────────────────────────── -->
+      <div class="section">
+        <div class="section-label"><span class="icon">👤</span> About You</div>
+        <div class="grid-2">
+          <div>
+            <label class="field-label" for="name">Your Name</label>
+            <input type="text" id="name" name="name" placeholder="Jane Doe" required>
+          </div>
+          <div>
+            <label class="field-label" for="email">Email Address</label>
+            <input type="email" id="email" name="email" placeholder="jane@example.com" required>
+          </div>
+        </div>
+      </div>
+
+      <hr class="div">
+
+      <!-- ── Skill Level ──────────────────────────────────── -->
+      <div class="section">
+        <div class="section-label"><span class="icon">🌱</span> Skill Level</div>
+        <div class="skill-group">
+          <label class="skill-card">
+            <input type="radio" name="skill_level" value="beginner" checked>
+            <span class="s-icon">🌱</span>
+            <span class="s-label">Beginner</span>
+            <span class="s-desc">Learning basic stitches</span>
+          </label>
+          <label class="skill-card">
+            <input type="radio" name="skill_level" value="intermediate">
+            <span class="s-icon">🌿</span>
+            <span class="s-label">Intermediate</span>
+            <span class="s-desc">Comfortable with patterns</span>
+          </label>
+          <label class="skill-card">
+            <input type="radio" name="skill_level" value="advanced">
+            <span class="s-icon">🌳</span>
+            <span class="s-label">Advanced</span>
+            <span class="s-desc">Complex techniques</span>
+          </label>
+        </div>
+      </div>
+
+      <hr class="div">
+
+      <!-- ── Project Types ────────────────────────────────── -->
+      <div class="section">
+        <div class="section-label"><span class="icon">📋</span> Project Type
+          <span style="font-weight:400;color:#bbb;font-size:10px;">(pick all you like)</span>
+        </div>
+        <div class="chip-group">
+          {% for value, label in project_types %}
+          <label class="chip">
+            <input type="checkbox" name="project_types" value="{{ value }}">
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <hr class="div">
+
+      <!-- ── Time Commitment ──────────────────────────────── -->
+      <div class="section">
+        <div class="section-label"><span class="icon">⏱</span> Time Commitment</div>
+        <div class="chip-group">
+          <label class="chip"><input type="radio" name="time_commitment" value="quick" checked>
+            ⚡ Quick (under 5 hrs)</label>
+          <label class="chip"><input type="radio" name="time_commitment" value="medium">
+            🌅 Medium (5–15 hrs)</label>
+          <label class="chip"><input type="radio" name="time_commitment" value="long">
+            🏔️ Long (15+ hrs)</label>
+          <label class="chip"><input type="radio" name="time_commitment" value="any">
+            🎲 Any length</label>
+        </div>
+      </div>
+
+      <hr class="div">
+
+      <!-- ── Yarn Type ────────────────────────────────────── -->
+      <div class="section">
+        <div class="section-label"><span class="icon">🧵</span> Yarn Type Preference</div>
+        <div class="chip-group">
+          {% for value, label in yarn_types %}
+          <label class="chip">
+            <input type="checkbox" name="yarn_weights" value="{{ value }}">
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <hr class="div">
+
+      <!-- ── Style ────────────────────────────────────────── -->
+      <div class="section">
+        <div class="section-label"><span class="icon">🎨</span> Style & Aesthetic</div>
+
+        <label class="field-label" style="margin-bottom:10px;">
+          Color preferences
+        </label>
+        <input type="text" name="color_preferences"
+          placeholder="e.g. pastels, earth tones, bold colors, neutrals…"
+          style="margin-bottom:16px;">
+
+        <label class="field-label" style="margin-bottom:10px;">
+          Aesthetic vibe
+          <span style="font-weight:400;color:#aaa;font-size:11px;">(pick one)</span>
+        </label>
+        <div class="aesthetic-group">
+          {% for a in aesthetics %}
+          <label class="aesthetic-chip">
+            <input type="radio" name="aesthetic" value="{{ a }}">
+            {{ a }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <hr class="div">
+
+      <!-- ── Budget ───────────────────────────────────────── -->
+      <div class="section">
+        <div class="section-label"><span class="icon">💰</span> Budget for Materials</div>
+        <div class="budget-group">
+          <label class="budget-card">
+            <input type="radio" name="budget" value="$10–$25">
+            <span class="b-icon">💚</span>
+            <span class="b-label">$10–$25</span>
+            <span class="b-desc">Budget-friendly</span>
+          </label>
+          <label class="budget-card">
+            <input type="radio" name="budget" value="$25–$50">
+            <span class="b-icon">💛</span>
+            <span class="b-label">$25–$50</span>
+            <span class="b-desc">Mid-range</span>
+          </label>
+          <label class="budget-card">
+            <input type="radio" name="budget" value="$50+">
+            <span class="b-icon">💜</span>
+            <span class="b-label">$50+</span>
+            <span class="b-desc">Premium yarns</span>
+          </label>
+          <label class="budget-card">
+            <input type="radio" name="budget" value="No limit" checked>
+            <span class="b-icon">🎉</span>
+            <span class="b-label">No limit</span>
+            <span class="b-desc">Surprise me!</span>
+          </label>
+        </div>
+      </div>
+
+      <hr class="div">
+
+      <!-- ── Extras ────────────────────────────────────────── -->
+      <div class="section">
+        <div class="section-label"><span class="icon">✨</span> Extras</div>
+
+        <label class="toggle-row">
+          <input type="checkbox" name="wants_video" checked>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span>
+            <span class="toggle-text">🎥 Include video tutorials</span><br>
+            <span class="toggle-sub">Prefer patterns that have a YouTube walkthrough</span>
+          </span>
+        </label>
+
+        <label class="toggle-row">
+          <input type="checkbox" name="wants_printable">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span>
+            <span class="toggle-text">🖨️ Printable patterns</span><br>
+            <span class="toggle-sub">Prefer patterns with a downloadable PDF version</span>
+          </span>
+        </label>
+
+        <label class="toggle-row">
+          <input type="checkbox" name="free_only">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span>
+            <span class="toggle-text">🆓 Free patterns only</span><br>
+            <span class="toggle-sub">Only send 100% free patterns</span>
+          </span>
+        </label>
+      </div>
+
+      <hr class="div">
+
+      <!-- ── Special Interests ─────────────────────────────── -->
+      <div class="section">
+        <div class="section-label"><span class="icon">💬</span> Anything Else?</div>
+        <label class="field-label" for="special_interests">
+          Special interests or keywords
+        </label>
+        <textarea id="special_interests" name="special_interests"
+          placeholder="e.g. ocean themes, cat motifs, no-sew amigurumi, chunky blankets, holiday gifts…"></textarea>
+        <p class="hint">Optional — the more detail, the better we can match your style.</p>
+      </div>
+
+      <button type="submit" class="submit-btn">
+        🧶 Sign Me Up — Send My Custom Picks!
+      </button>
+
+    </form>
+  </div>
+</div>
+</body>
+</html>
