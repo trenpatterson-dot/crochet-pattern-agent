@@ -5,7 +5,7 @@ Validates final found-pattern links without adding much latency.
 """
 
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urlparse
+from urllib.parse import quote_plus, urlparse
 from urllib.request import Request, urlopen
 
 from agents import link_builder
@@ -124,38 +124,97 @@ def _validate_material_link(material: dict, pattern_title: str) -> dict:
     name = validated.get("name", "crochet supply")
     url = (validated.get("store_url") or "").strip()
     store_name = validated.get("store_name", "")
-    domain = _domain(url)
+    domain = link_builder.infer_store_domain(store_name, url)
+    hook_size = validated.get("hook_size", "")
+    strategy = "vendor_search"
+
+    fallback = link_builder.generate_product_url(name, preferred_domain=domain, hook_size=hook_size)
+    validated["affiliate_url"] = fallback
+    validated["store_url"] = fallback
+    validated["approx_price"] = "Price varies by retailer"
+    if fallback.startswith("https://www.google.com/search?q="):
+        strategy = "google_fallback"
+    validated["material_link_strategy"] = strategy
+    validated["link_validation_note"] = "search link generated"
 
     try:
         ok, final_url, status = _validate_url(url)
     except Exception as exc:
-        fallback = _material_search_fallback(name, store_name, url)
         print(
             f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {url or 'missing url'} "
-            f"({exc}). Replaced with search fallback."
+            f"({exc}). Replaced with search fallback. material_link_strategy={strategy}"
         )
-        validated["store_url"] = fallback
         validated["link_validation_note"] = f"invalid material link replaced ({exc})"
         return validated
 
     if ok:
-        if final_url != url:
-            print(f"    [Link Validator] REPLACED MATERIAL: {pattern_title} / {name} -> redirected to {final_url}")
-        elif domain in KNOWN_STORE_DOMAINS:
-            print(f"    [Link Validator] OK MATERIAL: {pattern_title} / {name} -> {final_url}")
-        else:
-            print(f"    [Link Validator] OK MATERIAL (non-known domain): {pattern_title} / {name} -> {final_url}")
-        validated["store_url"] = link_builder.finalize_url(final_url, link_type="product")
-        validated["link_validation_note"] = "validated 200"
+        print(
+            f"    [Link Validator] OK MATERIAL: {pattern_title} / {name} -> {fallback} "
+            f"(material_link_strategy={strategy})"
+        )
+        validated["link_validation_note"] = "validated 200 via search strategy"
         return validated
 
-    fallback = _material_search_fallback(name, store_name, url)
     print(
         f"    [Link Validator] INVALID MATERIAL: {pattern_title} / {name} -> {url or 'missing url'} "
-        f"(status={status}). Replaced with search fallback."
+        f"(status={status}). Replaced with search fallback. material_link_strategy={strategy}"
     )
-    validated["store_url"] = fallback
     validated["link_validation_note"] = f"invalid material link replaced (status={status})"
+    return validated
+
+
+def _validate_tutorial_link(pattern: dict) -> dict:
+    validated = dict(pattern)
+    tutorial = dict(validated.get("video_tutorial") or {})
+    title = validated.get("title", "crochet pattern")
+    original_url = (tutorial.get("url") or "").strip()
+    fallback_url = link_builder.generate_tutorial_search_url(title)
+    tutorial["button_text"] = "Search Tutorial"
+    tutorial["tutorial_link_status"] = "fallback"
+
+    video_id = link_builder.extract_youtube_video_id(original_url)
+    if not video_id:
+        tutorial["url"] = fallback_url
+        tutorial["title"] = tutorial.get("title") or f"Search tutorial for {title}"
+        validated["video_tutorial"] = tutorial
+        print(
+            f"    [Link Validator] TUTORIAL FALLBACK: {title} -> missing valid video ID. "
+            f"tutorial_link_status=fallback"
+        )
+        return validated
+
+    clean_url = link_builder.finalize_tutorial_url(original_url)
+    oembed_url = f"https://www.youtube.com/oembed?url={quote_plus(clean_url)}&format=json"
+    try:
+        ok, final_url, status = _validate_url(oembed_url)
+    except Exception as exc:
+        tutorial["url"] = fallback_url
+        tutorial["title"] = tutorial.get("title") or f"Search tutorial for {title}"
+        tutorial["link_validation_note"] = f"tutorial fallback ({exc})"
+        validated["video_tutorial"] = tutorial
+        print(
+            f"    [Link Validator] TUTORIAL FALLBACK: {title} -> {clean_url} ({exc}). "
+            f"tutorial_link_status=fallback"
+        )
+        return validated
+
+    if ok:
+        tutorial["url"] = clean_url
+        tutorial["button_text"] = "Tutorial"
+        tutorial["tutorial_link_status"] = "valid"
+        tutorial["link_validation_note"] = "validated 200 via oembed"
+        validated["video_tutorial"] = tutorial
+        print(f"    [Link Validator] TUTORIAL OK: {title} -> {clean_url} tutorial_link_status=valid")
+        return validated
+
+    tutorial["url"] = fallback_url
+    tutorial["title"] = tutorial.get("title") or f"Search tutorial for {title}"
+    tutorial["link_validation_note"] = f"tutorial fallback (status={status})"
+    validated["video_tutorial"] = tutorial
+    print(
+        f"    [Link Validator] TUTORIAL FALLBACK: {title} -> {clean_url} (status={status}). "
+        f"tutorial_link_status=fallback"
+    )
     return validated
 
 
@@ -180,3 +239,9 @@ def validate_material_links(patterns: list[dict]) -> list[dict]:
         validated_patterns.append(normalized)
 
     return validated_patterns
+
+
+def validate_tutorial_links(patterns: list[dict]) -> list[dict]:
+    if not patterns:
+        return []
+    return [_validate_tutorial_link(pattern) if pattern.get("video_tutorial") else dict(pattern) for pattern in patterns]

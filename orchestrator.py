@@ -104,6 +104,9 @@ def run(user: dict) -> Optional[dict]:
     print("\n[Orchestrator] -> Link Validator: checking final materials/store URLs...")
     enriched = link_validator.validate_material_links(enriched)
 
+    print("\n[Orchestrator] -> Link Validator: checking final tutorial URLs...")
+    enriched = link_validator.validate_tutorial_links(enriched)
+
     print(f"\n[Orchestrator] DONE: Pipeline complete -- {len(enriched)} patterns ready for {name}")
     print(f"  ({len(approved_found)} found from trusted sites, {len(originals)} original)\n")
 

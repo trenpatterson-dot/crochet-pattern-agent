@@ -18,6 +18,7 @@ def _set_env(db_path: Path) -> None:
     os.environ["EMAIL_DRY_RUN"] = "true"
     os.environ["GMAIL_USER"] = "dryrun@example.com"
     os.environ["GMAIL_APP_PASSWORD"] = "not-used"
+    os.environ["AMAZON_ASSOCIATE_TAG"] = "smoketest-20"
 
 
 def main() -> int:
@@ -32,6 +33,7 @@ def main() -> int:
         _set_env(db_path)
 
         import database
+        from agents import link_builder, link_validator
         import mailer
         import orchestrator
         import scheduler
@@ -98,6 +100,10 @@ def main() -> int:
                     "color_suggestion": "blue",
                     "license_type": "original - personal use free",
                     "is_free": True,
+                    "video_tutorial": {
+                        "title": "Broken tutorial",
+                        "url": "https://www.youtube.com/watch?v=",
+                    },
                 }
             ],
             "found_count": 0,
@@ -116,7 +122,48 @@ def main() -> int:
 
         reports = database.get_reports_for_user(user["id"])
         assert reports, "scheduler dry-run did not save a report"
-        rendered_html = mailer.build_html(user, fake_result["patterns"])
+        normalized_scissors = link_builder.material_query_normalizer("scissors")
+        normalized_needles = link_builder.material_query_normalizer("yarn needle set")
+        normalized_hook = link_builder.material_query_normalizer("Crochet Hook", hook_size="5mm")
+        assert normalized_scissors != "scissors", "material_query_normalizer should refine scissors query"
+        assert "blunt tip" in normalized_needles.lower(), "yarn needle query should use blunt tip wording"
+        assert normalized_hook == "5mm crochet hook", "crochet hook query should include hook size"
+
+        tutorial_checked = link_validator.validate_tutorial_links(fake_result["patterns"])
+        tutorial = tutorial_checked[0]["video_tutorial"]
+        assert tutorial["tutorial_link_status"] == "fallback", "invalid tutorial should fall back to search"
+        assert tutorial["button_text"] == "Search Tutorial", "fallback tutorial should use search button text"
+
+        fake_result["patterns"][0]["materials"] = [
+            {
+                "name": "scissors",
+                "store_name": "Michaels",
+                "store_url": "https://www.michaels.com/products/example",
+                "approx_price": "$9.99",
+            },
+            {
+                "name": "yarn needle set",
+                "store_name": "Joann",
+                "store_url": "https://www.joann.com/products/example",
+                "approx_price": "$4.99",
+            },
+        ]
+        material_checked = link_validator.validate_material_links(fake_result["patterns"])
+        assert "amazon.com/s?k=small+embroidery+scissors" in material_checked[0]["materials"][0]["store_url"], (
+            "scissors link should use Amazon affiliate search query"
+        )
+        assert "tag=smoketest-20" in material_checked[0]["materials"][0]["affiliate_url"], (
+            "scissors affiliate URL should include the Amazon associate tag"
+        )
+        assert "amazon.com/s?k=blunt+tip+yarn+needle+set" in material_checked[0]["materials"][1]["store_url"], (
+            "yarn needle link should use Amazon affiliate search query"
+        )
+        assert "tag=smoketest-20" in material_checked[0]["materials"][1]["affiliate_url"], (
+            "yarn needle affiliate URL should include the Amazon associate tag"
+        )
+
+        final_checked = link_validator.validate_tutorial_links(material_checked)
+        rendered_html = mailer.build_html(user, final_checked)
         assert (
             "Materials You'll Need" in rendered_html
         ), "email HTML is missing the materials header"
@@ -130,6 +177,13 @@ def main() -> int:
             "email HTML is missing the production update preferences URL"
         )
         assert "localhost" not in rendered_html, "email HTML should never contain localhost"
+        assert "~$" not in rendered_html, "email HTML should not contain approximate pricing"
+        assert "Price varies by retailer" in rendered_html, "email HTML should show retailer-safe pricing text"
+        assert "Search Tutorial" in rendered_html, "email HTML should show Search Tutorial for fallback links"
+        assert (
+            "Some links may be affiliate links. If you purchase through them, I may earn a small commission at no extra cost to you."
+            in rendered_html
+        ), "email HTML should include the affiliate disclosure"
         assert scheduler.run()["sent_count"] == 0, "second scheduler run should not re-send before due date"
         assert scheduler.run()["skipped_count"] >= 1, "second scheduler run should skip not-due subscriber"
         reset_due = client.post("/admin/reset-due", data={"email": user["email"]}, headers=auth)

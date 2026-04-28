@@ -63,19 +63,26 @@ def _materials_html(materials: list, link_color: str = "#7B1FA2") -> str:
     items = []
     for m in materials:
         name = m.get("name", "")
-        url = m.get("store_url", "")
+        url = m.get("affiliate_url") or m.get("store_url", "")
         store = m.get("store_name", "")
-        price = m.get("approx_price", "")
         qty = m.get("quantity", "")
-        price_tag = f" <span style='color:#888;font-size:11px;'>~{price}</span>" if price else ""
         qty_tag = f" <span style='color:#aaa;font-size:11px;'>({qty})</span>" if qty else ""
         if url:
             items.append(
-                f"<li><a href='{url}' style='color:{link_color};'>{name}</a>"
-                f"{qty_tag} - {store}{price_tag}</li>"
+                f"<li style='margin:0 0 12px;'>"
+                f"<div style='font-weight:700;color:#4A235A;'>{name}{qty_tag}</div>"
+                f"<div style='margin-top:4px;'><a href='{url}' style='color:{link_color};text-decoration:none;'>"
+                f"Shop at {store or 'retailer'}</a></div>"
+                f"<div style='margin-top:3px;font-size:11px;color:#888;'>Price varies by retailer</div>"
+                f"</li>"
             )
         else:
-            items.append(f"<li>{name}{qty_tag}{price_tag}</li>")
+            items.append(
+                f"<li style='margin:0 0 12px;'>"
+                f"<div style='font-weight:700;color:#4A235A;'>{name}{qty_tag}</div>"
+                f"<div style='margin-top:3px;font-size:11px;color:#888;'>Price varies by retailer</div>"
+                f"</li>"
+            )
     return "\n".join(items)
 
 
@@ -125,10 +132,11 @@ def _found_pattern_block(p: dict, idx: int) -> str:
 
     video_td = ""
     if video.get("url"):
+        button_text = video.get("button_text") or "Tutorial"
         video_td = (
             f'<td><a href="{video["url"]}" style="display:inline-block;padding:7px 16px;'
             f'background:#FF0000;color:#fff;text-decoration:none;border-radius:5px;'
-            f'font-size:13px;font-weight:600;">Tutorial</a></td>'
+            f'font-size:13px;font-weight:600;">{button_text}</a></td>'
         )
 
     return f"""
@@ -198,6 +206,17 @@ def _original_pattern_block(p: dict, idx: int) -> str:
     instructions = p.get("instructions", "")
     notes = p.get("notes", [])
     notes_html = "".join(f"<li>{n}</li>" for n in notes) if notes else ""
+    video = p.get("video_tutorial") or {}
+    tutorial_html = ""
+    if video.get("url"):
+        tutorial_text = video.get("button_text") or "Tutorial"
+        tutorial_html = (
+            f'<table cellpadding="0" cellspacing="0" style="margin:0 0 14px;"><tr>'
+            f'<td><a href="{video["url"]}" style="display:inline-block;padding:7px 16px;'
+            f'background:#FF8F00;color:#fff;text-decoration:none;border-radius:5px;'
+            f'font-size:13px;font-weight:600;">{tutorial_text}</a></td>'
+            f'</tr></table>'
+        )
 
     return f"""
 <tr><td style="padding:0 32px 24px;">
@@ -254,6 +273,7 @@ def _original_pattern_block(p: dict, idx: int) -> str:
       <ul style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#555;line-height:1.7;">
         {_materials_html(materials, link_color="#A1670A")}
       </ul>
+      {tutorial_html}
       {_abbrev_html(abbrevs)}
       <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#7B5800;">
         Pattern Instructions:
@@ -389,6 +409,9 @@ def build_html(user: dict, patterns: list[dict]) -> str:
     </p>
     <p style="margin:8px 0 0;font-size:11px;color:#9A92A5;line-height:1.6;">
       Sent because you asked for personalized crochet recommendations. You can opt out any time.
+    </p>
+    <p style="margin:8px 0 0;font-size:11px;color:#9A92A5;line-height:1.6;">
+      Some links may be affiliate links. If you purchase through them, I may earn a small commission at no extra cost to you.
     </p>
   </td></tr>
 </table>
