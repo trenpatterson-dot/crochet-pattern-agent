@@ -17,7 +17,7 @@ load_dotenv(pathlib.Path(__file__).parent / ".env")
 import database
 import mailer
 import scheduler
-from agents import competition_intelligence_agent
+from agents import competition_intelligence_agent, llm as shared_llm
 
 database.init_db()
 
@@ -265,13 +265,15 @@ def admin():
     summary = database.get_storage_debug_summary()
     due_summary = _due_summary()
     transport = mailer.transport_debug_summary()
+    llm_debug = shared_llm.provider_debug_summary()
     logger.info(
-        "admin dashboard_loaded total_users=%s active_users=%s inactive_users=%s total_reports=%s due_count=%s db_path=%s",
+        "admin dashboard_loaded total_users=%s active_users=%s inactive_users=%s total_reports=%s due_count=%s llm_provider=%s db_path=%s",
         summary.get("total_users"),
         summary.get("active_users"),
         summary.get("inactive_users"),
         summary.get("total_reports"),
         due_summary.get("due_count"),
+        llm_debug.get("llm_provider"),
         summary.get("db_path"),
     )
     return render_template(
@@ -280,6 +282,7 @@ def admin():
         storage_debug=summary,
         due_summary=due_summary,
         mailer_debug=transport,
+        llm_debug=llm_debug,
     )
 
 
@@ -350,6 +353,15 @@ def admin_send_test():
     if result.get("ok"):
         query = "test_sent=1" if not result.get("dry_run") else "test_dry_run=1"
         return redirect(url_for("admin") + f"?{query}")
+
+    if result.get("status") == "llm_provider_error":
+        logger.warning(
+            "admin send_test llm_provider_error provider=%s email=%s db_path=%s",
+            result.get("provider"),
+            _mask_email(result.get("email", email)),
+            database.DB_PATH,
+        )
+        return redirect(url_for("admin") + "?llm_failed=1")
 
     return redirect(url_for("admin") + "?test_failed=1")
 

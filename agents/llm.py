@@ -1,5 +1,5 @@
 """
-Shared LLM client — routes to Anthropic or Ollama based on LLM_PROVIDER env var.
+Shared LLM client — routes to Anthropic, OpenAI, or Ollama based on LLM_PROVIDER env var.
 """
 
 import os
@@ -15,17 +15,33 @@ def _get(key: str, default: str = "") -> str:
     return _env.get(key) or os.getenv(key, default)
 
 LLM_PROVIDER     = _get("LLM_PROVIDER", "anthropic").lower()
-ANTHROPIC_MODEL  = "claude-sonnet-4-6"
+ANTHROPIC_MODEL  = _get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY")
+OPENAI_MODEL     = _get("OPENAI_MODEL", "gpt-5-mini")
+OPENAI_API_KEY   = _get("OPENAI_API_KEY")
 OLLAMA_MODEL     = _get("OLLAMA_MODEL", "llama3.2:latest")
 OLLAMA_BASE_URL  = _get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 ANTHROPIC_TIMEOUT_SECONDS = float(_get("ANTHROPIC_TIMEOUT_SECONDS", "90"))
+OPENAI_TIMEOUT_SECONDS = float(_get("OPENAI_TIMEOUT_SECONDS", "90"))
 
 
 def chat(system: str, user_msg: str, use_web_search: bool = False, max_tokens: int = 4096) -> str:
     if LLM_PROVIDER == "anthropic":
         return _anthropic(system, user_msg, use_web_search, max_tokens)
+    if LLM_PROVIDER == "openai":
+        return _openai(system, user_msg, max_tokens)
     return _ollama(system, user_msg, max_tokens)
+
+
+def provider_debug_summary() -> dict:
+    return {
+        "llm_provider": LLM_PROVIDER,
+        "anthropic_model": ANTHROPIC_MODEL,
+        "openai_model": OPENAI_MODEL,
+        "ollama_model": OLLAMA_MODEL,
+        "openai_configured": bool(OPENAI_API_KEY),
+        "anthropic_configured": bool(ANTHROPIC_API_KEY),
+    }
 
 
 def _anthropic(system: str, user_msg: str, use_web_search: bool, max_tokens: int) -> str:
@@ -77,6 +93,25 @@ def _anthropic(system: str, user_msg: str, use_web_search: bool, max_tokens: int
                 return _ollama(system, user_msg, max_tokens)
             raise
     raise RuntimeError("Anthropic API failed after 3 attempts")
+
+
+def _openai(system: str, user_msg: str, max_tokens: int) -> str:
+    from openai import OpenAI
+
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is not configured.")
+
+    client = OpenAI(
+        api_key=OPENAI_API_KEY,
+        timeout=OPENAI_TIMEOUT_SECONDS,
+    )
+    response = client.responses.create(
+        model=OPENAI_MODEL,
+        instructions=system,
+        input=user_msg,
+        max_output_tokens=max_tokens,
+    )
+    return getattr(response, "output_text", "") or ""
 
 
 def _ollama(system: str, user_msg: str, max_tokens: int) -> str:

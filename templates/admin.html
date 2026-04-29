@@ -174,6 +174,11 @@
     ⚠️ Selected subscriber send failed — check Render logs for mailer details.
   </div>
   {% endif %}
+  {% if request.args.get('llm_failed') %}
+  <div class="alert" style="background:#FCE4EC;border-color:#F48FB1;color:#B71C1C;">
+    ⚠️ Report generation failed because the LLM provider rejected the request. Check API credits or provider settings.
+  </div>
+  {% endif %}
   {% if request.args.get('live_blocked') %}
   <div class="alert" style="background:#FFF8E1;border-color:#FFE082;color:#8D6E00;">
     ⚠️ Live all-user send blocked because multiple subscribers are due. Use the per-subscriber test send first.
@@ -190,6 +195,20 @@
     · SMTP {{ mailer_debug.smtp_host }}:{{ mailer_debug.smtp_port }}
     · SSL {{ 'on' if mailer_debug.smtp_use_ssl else 'off' }}
     · Due now {{ due_summary.due_count if due_summary else 0 }}
+  </div>
+  {% endif %}
+  {% if llm_debug %}
+  <div class="alert" style="background:#F3E5F5;border-color:#CE93D8;color:#4A148C;">
+    LLM provider: <strong>{{ llm_debug.llm_provider }}</strong>
+    {% if llm_debug.llm_provider == 'openai' %}
+    · model {{ llm_debug.openai_model }}
+    · API key {{ 'configured' if llm_debug.openai_configured else 'missing' }}
+    {% elif llm_debug.llm_provider == 'anthropic' %}
+    · model {{ llm_debug.anthropic_model }}
+    · API key {{ 'configured' if llm_debug.anthropic_configured else 'missing' }}
+    {% else %}
+    · model {{ llm_debug.ollama_model }}
+    {% endif %}
   </div>
   {% endif %}
 

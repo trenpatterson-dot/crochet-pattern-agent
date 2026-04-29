@@ -17,6 +17,12 @@ services:
         sync: false          # required: do not expose /admin without this
       - key: ANTHROPIC_API_KEY
         sync: false          # you paste this in the Render dashboard
+      - key: LLM_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5-mini
       - key: GMAIL_USER
         sync: false
       - key: GMAIL_APP_PASSWORD

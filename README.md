@@ -9,6 +9,21 @@ It includes:
 - a weekly competition intelligence pipeline
 - email delivery or dry-run email preview
 
+## LLM Provider Selection
+
+The recommendation pipeline supports multiple providers through environment variables:
+
+- `LLM_PROVIDER=anthropic`
+  - requires `ANTHROPIC_API_KEY`
+  - optional `ANTHROPIC_MODEL` (default: `claude-sonnet-4-6`)
+- `LLM_PROVIDER=openai`
+  - requires `OPENAI_API_KEY`
+  - optional `OPENAI_MODEL` (default: `gpt-5-mini`)
+- `LLM_PROVIDER=ollama`
+  - uses `OLLAMA_BASE_URL` and `OLLAMA_MODEL`
+
+The Render blueprint is now set up to prefer OpenAI by default.
+
 ## Competition Intelligence Agent
 
 The repo now includes a `Competition Intelligence Agent` for StitchFlow Labs. It:

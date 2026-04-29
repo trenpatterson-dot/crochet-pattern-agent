@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 load_dotenv(pathlib.Path(__file__).parent / ".env")
 
 import database
+from agents import llm as shared_llm
 import mailer
 import orchestrator
 from agents import competition_intelligence_agent
@@ -83,7 +84,19 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
             "dry_run": mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override,
         }
 
-    result = orchestrator.run(user)
+    try:
+        result = orchestrator.run(user)
+    except Exception as exc:
+        return {
+            "ok": False,
+            "status": "llm_provider_error",
+            "email": user["email"],
+            "user_id": user["id"],
+            "dry_run": mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override,
+            "provider": shared_llm.provider_debug_summary().get("llm_provider"),
+            "error": str(exc),
+        }
+
     if not result or not result.get("patterns"):
         return {
             "ok": False,
