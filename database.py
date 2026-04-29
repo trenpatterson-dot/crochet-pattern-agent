@@ -154,6 +154,12 @@ def get_all_users():
     return [_deserialize(dict(r)) for r in rows]
 
 
+def get_user_by_email(email: str):
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+    return _deserialize(dict(row)) if row else None
+
+
 def get_storage_debug_summary():
     with get_conn() as conn:
         total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]

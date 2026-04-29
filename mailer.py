@@ -18,6 +18,9 @@ load_dotenv(pathlib.Path(__file__).parent / ".env")
 GMAIL_USER = os.getenv("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 EMAIL_DRY_RUN = os.getenv("EMAIL_DRY_RUN", "false").strip().lower() == "true"
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip() or "smtp.gmail.com"
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "true").strip().lower() != "false"
 UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me"))
 MATERIALS_SECTION_HEADER = "\U0001F9F6 What You\u2019ll Need (Quick Buy Links)"
 
@@ -55,6 +58,17 @@ def _summary_text(found_count: int, original_count: int) -> str:
     if original_count:
         parts.append(f"{original_count} made just for you")
     return " + ".join(parts) if parts else "personalized picks"
+
+
+def transport_debug_summary() -> dict:
+    return {
+        "email_dry_run": EMAIL_DRY_RUN,
+        "smtp_host": SMTP_HOST,
+        "smtp_port": SMTP_PORT,
+        "smtp_use_ssl": SMTP_USE_SSL,
+        "gmail_user_configured": bool(GMAIL_USER),
+        "gmail_password_configured": bool(GMAIL_APP_PASSWORD),
+    }
 
 
 def _materials_html(materials: list, link_color: str = "#7B1FA2") -> str:
@@ -431,13 +445,22 @@ def build_html(user: dict, patterns: list[dict]) -> str:
     return "\n".join(normalized_lines)
 
 
-def send_report(user: dict, patterns: list[dict]) -> bool:
-    if EMAIL_DRY_RUN:
+def send_report(user: dict, patterns: list[dict], dry_run_override: bool | None = None) -> bool:
+    effective_dry_run = EMAIL_DRY_RUN if dry_run_override is None else dry_run_override
+    print(
+        f"  [Mailer] transport dry_run={effective_dry_run} host={SMTP_HOST} "
+        f"port={SMTP_PORT} ssl={SMTP_USE_SSL}"
+    )
+
+    if effective_dry_run:
         print(f"  [Mailer] DRY RUN: would send report to {user['email']}")
         return True
 
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
-        print("  [Mailer] ERROR: GMAIL_USER or GMAIL_APP_PASSWORD not set.")
+        print(
+            "  [Mailer] ERROR: SMTP credentials not configured "
+            f"(host={SMTP_HOST} port={SMTP_PORT} ssl={SMTP_USE_SSL})."
+        )
         return False
 
     found = [p for p in patterns if not p.get("is_original")]
@@ -479,11 +502,21 @@ def send_report(user: dict, patterns: list[dict]) -> bool:
     msg.attach(MIMEText(html, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        if SMTP_USE_SSL:
+            smtp = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
+        else:
+            smtp = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+
+        with smtp:
+            if not SMTP_USE_SSL:
+                smtp.starttls()
             smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
             smtp.sendmail(GMAIL_USER, user["email"], msg.as_string())
         print(f"  [Mailer] Sent to {user['email']} ({summary_text})")
         return True
     except Exception as e:
-        print(f"  [Mailer] ERROR: {e}")
+        print(
+            f"  [Mailer] ERROR: {e} "
+            f"(host={SMTP_HOST} port={SMTP_PORT} ssl={SMTP_USE_SSL} dry_run={effective_dry_run})"
+        )
         return False

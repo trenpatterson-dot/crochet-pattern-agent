@@ -52,6 +52,63 @@ def _is_due(user: dict, now: datetime) -> tuple[bool, str]:
     return False, f"next_due={next_due.isoformat(timespec='seconds')}"
 
 
+def get_due_users(now: datetime | None = None) -> list[dict]:
+    database.init_db()
+    now = now or datetime.now()
+    due_users = []
+    for user in database.get_active_users():
+        due, reason = _is_due(user, now)
+        if due:
+            due_users.append({"user": user, "reason": reason})
+    return due_users
+
+
+def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None) -> dict:
+    database.init_db()
+    started_at = datetime.now()
+    user = database.get_user_by_email(email.strip().lower())
+    if not user:
+        return {
+            "ok": False,
+            "status": "missing_user",
+            "email": email,
+            "dry_run": mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override,
+        }
+
+    if not user.get("active"):
+        return {
+            "ok": False,
+            "status": "inactive_user",
+            "email": user["email"],
+            "dry_run": mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override,
+        }
+
+    result = orchestrator.run(user)
+    if not result or not result.get("patterns"):
+        return {
+            "ok": False,
+            "status": "no_patterns",
+            "email": user["email"],
+            "dry_run": mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override,
+        }
+
+    patterns = result["patterns"]
+    ok = mailer.send_report(user, patterns, dry_run_override=dry_run_override)
+    effective_dry_run = mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override
+    if ok and not effective_dry_run:
+        database.save_report(user["id"], result)
+
+    return {
+        "ok": ok,
+        "status": "sent" if ok and not effective_dry_run else ("dry_run" if ok else "send_failed"),
+        "email": user["email"],
+        "user_id": user["id"],
+        "patterns_count": len(patterns),
+        "dry_run": effective_dry_run,
+        "duration_seconds": round((datetime.now() - started_at).total_seconds(), 2),
+    }
+
+
 def _acquire_lock() -> int | None:
     LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:

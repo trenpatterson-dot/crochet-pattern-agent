@@ -139,6 +139,12 @@
       <p>Crochet Pattern Finder — Subscriber Management</p>
     </div>
     <form method="POST" action="/admin/run">
+      {% if mailer_debug and not mailer_debug.email_dry_run and due_summary and due_summary.due_count > 1 %}
+      <label style="display:block;margin-bottom:8px;font-size:12px;color:#fff;">
+        <input type="checkbox" name="confirm_multi_due_send" value="yes" style="margin-right:6px;">
+        Confirm live send to all due subscribers ({{ due_summary.due_count }})
+      </label>
+      {% endif %}
       <button type="submit" class="run-btn">▶ Run Now (All Users)</button>
     </form>
   </div>
@@ -153,9 +159,37 @@
     ✅ Selected subscriber marked due now — run one controlled test pass when ready.
   </div>
   {% endif %}
+  {% if request.args.get('test_dry_run') %}
+  <div class="alert">
+    ✅ Selected subscriber dry-run completed — no live email was sent.
+  </div>
+  {% endif %}
+  {% if request.args.get('test_sent') %}
+  <div class="alert">
+    ✅ Selected subscriber send completed.
+  </div>
+  {% endif %}
+  {% if request.args.get('test_failed') %}
+  <div class="alert" style="background:#FCE4EC;border-color:#F48FB1;color:#B71C1C;">
+    ⚠️ Selected subscriber send failed — check Render logs for mailer details.
+  </div>
+  {% endif %}
+  {% if request.args.get('live_blocked') %}
+  <div class="alert" style="background:#FFF8E1;border-color:#FFE082;color:#8D6E00;">
+    ⚠️ Live all-user send blocked because multiple subscribers are due. Use the per-subscriber test send first.
+  </div>
+  {% endif %}
   {% if storage_debug %}
   <div class="alert">
     Debug: {{ storage_debug.total_users }} stored subscribers, {{ storage_debug.active_users }} active, {{ storage_debug.inactive_users }} inactive, {{ storage_debug.total_reports }} saved reports.
+  </div>
+  {% endif %}
+  {% if mailer_debug %}
+  <div class="alert" style="background:#E3F2FD;border-color:#90CAF9;color:#0D47A1;">
+    Mailer mode: <strong>{{ 'DRY RUN' if mailer_debug.email_dry_run else 'LIVE SEND ENABLED' }}</strong>
+    · SMTP {{ mailer_debug.smtp_host }}:{{ mailer_debug.smtp_port }}
+    · SSL {{ 'on' if mailer_debug.smtp_use_ssl else 'off' }}
+    · Due now {{ due_summary.due_count if due_summary else 0 }}
   </div>
   {% endif %}
 
@@ -240,6 +274,20 @@
           <form method="POST" action="/admin/reset-due">
             <input type="hidden" name="email" value="{{ u.email }}">
             <button type="submit" class="action-btn">Mark Due Now</button>
+          </form>
+          <form method="POST" action="/admin/send-test" style="margin-top:6px;">
+            <input type="hidden" name="email" value="{{ u.email }}">
+            <input type="hidden" name="mode" value="dry_run">
+            <button type="submit" class="action-btn" style="background:linear-gradient(135deg,#1976D2,#42A5F5);border-color:#1E88E5;">
+              Send Test (Dry Run)
+            </button>
+          </form>
+          <form method="POST" action="/admin/send-test" style="margin-top:6px;">
+            <input type="hidden" name="email" value="{{ u.email }}">
+            <input type="hidden" name="mode" value="live">
+            <button type="submit" class="action-btn" style="background:linear-gradient(135deg,#6A1B9A,#AB47BC);border-color:#8E24AA;">
+              Send Test (Selected Only)
+            </button>
           </form>
         </td>
       </tr>

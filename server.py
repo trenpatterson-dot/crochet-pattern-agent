@@ -15,6 +15,7 @@ from itsdangerous import BadSignature, URLSafeSerializer
 
 load_dotenv(pathlib.Path(__file__).parent / ".env")
 import database
+import mailer
 import scheduler
 from agents import competition_intelligence_agent
 
@@ -66,6 +67,14 @@ def _mask_name(name: str) -> str:
     if not name:
         return ""
     return f"{name[:1]}*** ({len(name)} chars)"
+
+
+def _due_summary() -> dict:
+    due_entries = scheduler.get_due_users()
+    return {
+        "due_count": len(due_entries),
+        "due_emails": [entry["user"]["email"] for entry in due_entries],
+    }
 
 
 def _is_production() -> bool:
@@ -254,15 +263,24 @@ def admin():
         return auth_error
     users = database.get_all_users()
     summary = database.get_storage_debug_summary()
+    due_summary = _due_summary()
+    transport = mailer.transport_debug_summary()
     logger.info(
-        "admin dashboard_loaded total_users=%s active_users=%s inactive_users=%s total_reports=%s db_path=%s",
+        "admin dashboard_loaded total_users=%s active_users=%s inactive_users=%s total_reports=%s due_count=%s db_path=%s",
         summary.get("total_users"),
         summary.get("active_users"),
         summary.get("inactive_users"),
         summary.get("total_reports"),
+        due_summary.get("due_count"),
         summary.get("db_path"),
     )
-    return render_template("admin.html", users=users, storage_debug=summary)
+    return render_template(
+        "admin.html",
+        users=users,
+        storage_debug=summary,
+        due_summary=due_summary,
+        mailer_debug=transport,
+    )
 
 
 @app.route("/admin/reset-due", methods=["POST"])
@@ -285,10 +303,55 @@ def admin_run():
     if auth_error:
         return auth_error
 
+    due_summary = _due_summary()
+    if not mailer.EMAIL_DRY_RUN and due_summary["due_count"] > 1:
+        confirmed = request.form.get("confirm_multi_due_send", "").strip().lower() == "yes"
+        if not confirmed:
+            logger.warning(
+                "admin run blocked multiple_due_live_send due_count=%s db_path=%s",
+                due_summary["due_count"],
+                database.DB_PATH,
+            )
+            return redirect(url_for("admin") + "?live_blocked=1")
+
     if not _start_scheduler_run():
         return Response("Scheduler is already running.", 409)
 
     return redirect(url_for("admin") + "?running=1")
+
+
+@app.route("/admin/send-test", methods=["POST"])
+def admin_send_test():
+    auth_error = _require_admin()
+    if auth_error:
+        return auth_error
+
+    email = request.form.get("email", "").strip().lower()
+    mode = request.form.get("mode", "dry_run").strip().lower()
+    if not email:
+        return Response("Subscriber email is required.", 400)
+
+    dry_run_override = mode != "live"
+    logger.info(
+        "admin send_test requested email=%s mode=%s db_path=%s",
+        _mask_email(email),
+        mode,
+        database.DB_PATH,
+    )
+    result = scheduler.send_selected_subscriber(email, dry_run_override=dry_run_override)
+    logger.info(
+        "admin send_test result email=%s status=%s dry_run=%s patterns=%s db_path=%s",
+        _mask_email(result.get("email", email)),
+        result.get("status"),
+        result.get("dry_run"),
+        result.get("patterns_count"),
+        database.DB_PATH,
+    )
+    if result.get("ok"):
+        query = "test_sent=1" if not result.get("dry_run") else "test_dry_run=1"
+        return redirect(url_for("admin") + f"?{query}")
+
+    return redirect(url_for("admin") + "?test_failed=1")
 
 
 @app.route("/internal/scheduler/run", methods=["POST"])
