@@ -200,7 +200,8 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
         )
     )
 
-    if diagnostics.get("creator_meta", {}).get("reason") == "parse_failed":
+    creator_reason = diagnostics.get("creator_meta", {}).get("reason")
+    if creator_reason in {"invalid_json", "parsed_zero_items"} and not diagnostics.get("final_usable_pattern_count"):
         return {
             "ok": False,
             "status": "creator_parse_failed",
