@@ -49,8 +49,17 @@ def _domain(url: str) -> str:
         return ""
 
 
-def verify(patterns: list[dict]) -> list[dict]:
+def verify(patterns: list[dict], return_meta: bool = False):
     if not patterns:
+        meta = {
+            "input_count": 0,
+            "fast_approved_count": 0,
+            "approved_count": 0,
+            "rejected_count": 0,
+            "reason": "no_input_patterns",
+        }
+        if return_meta:
+            return [], meta
         return []
 
     fast_approved = []
@@ -66,8 +75,19 @@ def verify(patterns: list[dict]) -> list[dict]:
             pattern["_domain_warning"] = f"Domain '{domain}' is not on the trusted sites list"
             needs_review.append(pattern)
 
+    meta = {
+        "input_count": len(patterns),
+        "fast_approved_count": len(fast_approved),
+        "approved_count": 0,
+        "rejected_count": 0,
+        "reason": "ok",
+    }
+
     if not needs_review:
         print(f"    [Compliance Agent] Fast-path approved {len(fast_approved)}/{len(patterns)} patterns by trusted domain")
+        meta["approved_count"] = len(fast_approved)
+        if return_meta:
+            return fast_approved, meta
         return fast_approved
 
     patterns_json = json.dumps(needs_review, indent=2)
@@ -88,7 +108,12 @@ Return concise JSON verdicts only."""
         print("    [Compliance Agent] WARNING: Could not parse response - passing flagged items through with caution")
         for pattern in needs_review:
             pattern["compliance_note"] = "Could not fully verify - link with caution"
-        return fast_approved + needs_review
+        approved = fast_approved + needs_review
+        meta["approved_count"] = len(approved)
+        meta["reason"] = "parse_failed_pass_through"
+        if return_meta:
+            return approved, meta
+        return approved
 
     results = data["results"]
     summary = data.get("summary", "")
@@ -112,6 +137,7 @@ Return concise JSON verdicts only."""
 
         if verdict == "rejected":
             print(f"    [Compliance Agent] REJECTED: {pattern.get('title')} - {reason}")
+            meta["rejected_count"] += 1
             continue
 
         if verdict in ("approved_with_note", "flagged") and note:
@@ -123,4 +149,7 @@ Return concise JSON verdicts only."""
         approved.append(pattern)
 
     print(f"    [Compliance Agent] {len(approved)}/{len(patterns)} patterns approved")
+    meta["approved_count"] = len(approved)
+    if return_meta:
+        return approved, meta
     return approved

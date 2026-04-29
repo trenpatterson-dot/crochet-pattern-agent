@@ -42,8 +42,15 @@ For each of the top 3, return:
 Return ONLY valid JSON: {"top_found": [...]}"""
 
 
-def curate(user: dict, candidates: list[dict]) -> list[dict]:
+def curate(user: dict, candidates: list[dict], return_meta: bool = False):
     if not candidates:
+        meta = {
+            "input_candidates_count": 0,
+            "selected_count": 0,
+            "reason": "no_input_candidates",
+        }
+        if return_meta:
+            return [], meta
         return []
 
     selected_test_mode = bool(user.get("_selected_test_mode"))
@@ -79,13 +86,24 @@ Apply your expert crochet judgment. Remove poor fits. Rank the top 3 found patte
             f"\n{intel_context}"
         )
 
-    raw = llm.chat(SYSTEM, user_msg, max_tokens=1200 if selected_test_mode else 1800)
+    raw = llm.chat(SYSTEM, user_msg, max_tokens=1400 if selected_test_mode else 1800)
     data = llm.parse_json(raw)
+    meta = {
+        "input_candidates_count": len(candidates),
+        "selected_count": 0,
+        "reason": "ok",
+    }
 
     if data and "top_found" in data:
         top3 = data["top_found"]
+        meta["selected_count"] = len(top3)
         print(f"    [Filter Agent] Selected top {len(top3)} found patterns")
+        if return_meta:
+            return top3, meta
         return top3
 
     print("    [Filter Agent] WARNING: Could not parse top_found")
+    meta["reason"] = "parse_failed"
+    if return_meta:
+        return [], meta
     return []

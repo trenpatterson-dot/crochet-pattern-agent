@@ -242,6 +242,13 @@
     {% if selected_test_status.duration_seconds is not none %}· Duration {{ selected_test_status.duration_seconds }}s{% endif %}
     <br>
     {{ selected_test_status.message }}
+    {% if selected_test_status.diagnostics %}
+    <br>
+    Search {{ selected_test_status.diagnostics.search_candidates_count or 0 }}
+    · Filter {{ selected_test_status.diagnostics.filtered_candidates_count or 0 }}
+    · Originals {{ selected_test_status.diagnostics.original_created_count or 0 }}
+    · Final {{ selected_test_status.diagnostics.final_usable_pattern_count or 0 }}
+    {% endif %}
     {% if selected_test_status.error %}
     <br>
     Detail: {{ selected_test_status.error }}

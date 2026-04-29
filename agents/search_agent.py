@@ -41,7 +41,7 @@ For each pattern return:
 Return ONLY valid JSON: {{"candidates": [...]}}"""
 
 
-def find_candidates(user: dict) -> list[dict]:
+def find_candidates(user: dict, return_meta: bool = False):
     selected_test_mode = bool(user.get("_selected_test_mode"))
     projects = ", ".join(user["project_types"])
     skill = user["skill_level"]
@@ -79,12 +79,19 @@ Find 8 diverse candidates from trusted crochet sites."""
         )
 
     raw_results = []
-    seed_sites = SEARCH_SEED_SITES[:2] if selected_test_mode else SEARCH_SEED_SITES
-    ddg_max_results = 2 if selected_test_mode else 4
-    chat_max_tokens = 1200 if selected_test_mode else 2500
+    seed_sites = SEARCH_SEED_SITES if selected_test_mode else SEARCH_SEED_SITES
+    ddg_max_results = 3 if selected_test_mode else 4
+    chat_max_tokens = 1800 if selected_test_mode else 2500
     for site in seed_sites:
         q = f"{skill} {projects} crochet pattern {colors} site:{site}"
         raw_results.extend(llm.ddg_search(q, max_results=ddg_max_results))
+
+    meta = {
+        "seed_site_count": len(seed_sites),
+        "raw_search_results_count": len(raw_results),
+        "candidate_count": 0,
+        "reason": "ok",
+    }
 
     if raw_results:
         context = json.dumps([
@@ -98,8 +105,14 @@ Find 8 diverse candidates from trusted crochet sites."""
 
     if data and "candidates" in data:
         candidates = data["candidates"]
+        meta["candidate_count"] = len(candidates)
         print(f"    [Search Agent] Found {len(candidates)} candidates")
+        if return_meta:
+            return candidates, meta
         return candidates
 
     print("    [Search Agent] WARNING: Could not parse candidates")
+    meta["reason"] = "parse_failed"
+    if return_meta:
+        return [], meta
     return []

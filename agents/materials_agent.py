@@ -70,8 +70,15 @@ def _merge_pattern_data(base_pattern: dict, enriched_pattern: dict, youtube_by_p
     return normalized
 
 
-def enrich(user: dict, patterns: list[dict]) -> list[dict]:
+def enrich(user: dict, patterns: list[dict], return_meta: bool = False):
     if not patterns:
+        meta = {
+            "input_count": 0,
+            "enriched_count": 0,
+            "reason": "no_input_patterns",
+        }
+        if return_meta:
+            return [], meta
         return []
 
     selected_test_mode = bool(user.get("_selected_test_mode"))
@@ -135,6 +142,11 @@ For each pattern: list every material needed, do not include prices or total cos
         max_tokens=1800 if selected_test_mode else 3500,
     )
     data = llm.parse_json(raw)
+    meta = {
+        "input_count": len(patterns),
+        "enriched_count": 0,
+        "reason": "ok",
+    }
 
     if data and "enriched" in data:
         original_by_title = {
@@ -146,8 +158,15 @@ For each pattern: list every material needed, do not include prices or total cos
             base_pattern = original_by_title.get(key, {})
             enriched.append(_merge_pattern_data(base_pattern, item, youtube_by_pattern))
         print(f"    [Materials Agent] Enriched {len(enriched)} patterns")
+        meta["enriched_count"] = len(enriched)
+        if return_meta:
+            return enriched, meta
         return enriched
 
     fallback = [_merge_pattern_data(item, {}, youtube_by_pattern) for item in patterns]
     print("    [Materials Agent] WARNING: Could not parse enriched JSON - returning fallback enrichment")
+    meta["enriched_count"] = len(fallback)
+    meta["reason"] = "parse_failed_fallback"
+    if return_meta:
+        return fallback, meta
     return fallback

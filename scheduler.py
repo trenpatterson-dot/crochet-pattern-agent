@@ -71,6 +71,20 @@ def _friendly_selected_status(result: dict) -> tuple[str, str]:
         return "succeeded", "Selected subscriber send completed."
 
     status = result.get("status")
+    if status == "search_zero_candidates":
+        return "failed", "Search returned 0 candidates."
+    if status == "search_parse_failed":
+        return "failed", "Search agent returned output that could not be parsed into candidates."
+    if status == "filter_zero_candidates":
+        return "failed", "All candidates were filtered out."
+    if status == "filter_parse_failed":
+        return "failed", "Filter agent returned output that could not be parsed into ranked patterns."
+    if status == "creator_parse_failed":
+        return "failed", "Pattern creator returned invalid output."
+    if status == "compliance_and_creator_zero_patterns":
+        return "failed", "Compliance and creator stages both returned 0 usable patterns."
+    if status == "final_zero_patterns":
+        return "failed", "The report pipeline completed, but 0 usable patterns remained after enrichment and validation."
     if status == "llm_provider_error":
         return (
             "failed",
@@ -155,12 +169,36 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
             "error": str(exc),
         }
 
+    diagnostics = (result or {}).get("diagnostics", {})
+    print(
+        "[Selected Test] search_candidates=%s filtered_candidates=%s created_originals=%s final_patterns=%s reason=%s"
+        % (
+            diagnostics.get("search_candidates_count"),
+            diagnostics.get("filtered_candidates_count"),
+            diagnostics.get("original_created_count"),
+            diagnostics.get("final_usable_pattern_count"),
+            diagnostics.get("failure_reason"),
+        )
+    )
+
+    if diagnostics.get("creator_meta", {}).get("reason") == "parse_failed":
+        return {
+            "ok": False,
+            "status": "creator_parse_failed",
+            "email": user["email"],
+            "user_id": user["id"],
+            "dry_run": effective_dry_run,
+            "provider": shared_llm.provider_debug_summary().get("llm_provider"),
+            "diagnostics": diagnostics,
+        }
+
     if not result or not result.get("patterns"):
         return {
             "ok": False,
-            "status": "no_patterns",
+            "status": diagnostics.get("failure_reason") or "no_patterns",
             "email": user["email"],
             "dry_run": effective_dry_run,
+            "diagnostics": diagnostics,
         }
 
     patterns = result["patterns"]
@@ -176,6 +214,7 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
         "patterns_count": len(patterns),
         "dry_run": effective_dry_run,
         "duration_seconds": round((datetime.now() - started_at).total_seconds(), 2),
+        "diagnostics": diagnostics,
     }
 
 
@@ -221,6 +260,7 @@ def run_selected_subscriber_job(email: str, *, dry_run_override: bool | None = N
             "finished_at": finished_at.isoformat(timespec="seconds"),
             "duration_seconds": round((finished_at - started_at).total_seconds(), 2),
             "error": result.get("error"),
+            "diagnostics": result.get("diagnostics"),
         }
     )
     _write_selected_test_status(status_payload)
