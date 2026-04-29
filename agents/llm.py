@@ -4,6 +4,7 @@ Shared LLM client — routes to Anthropic, OpenAI, or Ollama based on LLM_PROVID
 
 import os
 import re
+import warnings
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from pathlib import Path
 from dotenv import dotenv_values
@@ -22,7 +23,7 @@ OPENAI_API_KEY   = _get("OPENAI_API_KEY")
 OLLAMA_MODEL     = _get("OLLAMA_MODEL", "llama3.2:latest")
 OLLAMA_BASE_URL  = _get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 ANTHROPIC_TIMEOUT_SECONDS = float(_get("ANTHROPIC_TIMEOUT_SECONDS", "90"))
-OPENAI_TIMEOUT_SECONDS = float(_get("OPENAI_TIMEOUT_SECONDS", "90"))
+OPENAI_TIMEOUT_SECONDS = float(_get("OPENAI_TIMEOUT_SECONDS", "25"))
 
 
 def chat(system: str, user_msg: str, use_web_search: bool = False, max_tokens: int = 4096) -> str:
@@ -41,6 +42,8 @@ def provider_debug_summary() -> dict:
         "ollama_model": OLLAMA_MODEL,
         "openai_configured": bool(OPENAI_API_KEY),
         "anthropic_configured": bool(ANTHROPIC_API_KEY),
+        "openai_timeout_seconds": OPENAI_TIMEOUT_SECONDS,
+        "anthropic_timeout_seconds": ANTHROPIC_TIMEOUT_SECONDS,
     }
 
 
@@ -96,7 +99,7 @@ def _anthropic(system: str, user_msg: str, use_web_search: bool, max_tokens: int
 
 
 def _openai(system: str, user_msg: str, max_tokens: int) -> str:
-    from openai import OpenAI
+    from openai import APIConnectionError, APIError, APITimeoutError, OpenAI, RateLimitError
 
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is not configured.")
@@ -105,12 +108,32 @@ def _openai(system: str, user_msg: str, max_tokens: int) -> str:
         api_key=OPENAI_API_KEY,
         timeout=OPENAI_TIMEOUT_SECONDS,
     )
-    response = client.responses.create(
+    kwargs = dict(
         model=OPENAI_MODEL,
         instructions=system,
         input=user_msg,
         max_output_tokens=max_tokens,
     )
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(client.responses.create, **kwargs)
+            response = future.result(timeout=OPENAI_TIMEOUT_SECONDS)
+    except FutureTimeoutError as exc:
+        raise RuntimeError(
+            f"OpenAI call exceeded {OPENAI_TIMEOUT_SECONDS:.0f}s."
+        ) from exc
+    except APITimeoutError as exc:
+        raise RuntimeError(
+            f"OpenAI request timed out after {OPENAI_TIMEOUT_SECONDS:.0f}s."
+        ) from exc
+    except APIConnectionError as exc:
+        raise RuntimeError(f"OpenAI connection failed: {exc}") from exc
+    except RateLimitError as exc:
+        raise RuntimeError("OpenAI rate limit reached. Check quota and retry.") from exc
+    except APIError as exc:
+        raise RuntimeError(f"OpenAI API request failed: {exc}") from exc
+
     return getattr(response, "output_text", "") or ""
 
 
@@ -150,7 +173,12 @@ def ddg_search(query: str, max_results: int = 5) -> list[dict]:
         try:
             from ddgs import DDGS
         except ImportError:
-            from duckduckgo_search import DDGS
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=".*duckduckgo_search.*renamed to ddgs.*",
+                )
+                from duckduckgo_search import DDGS
     except ImportError:
         print("    [LLM] DDG client is not installed; continuing without DDG results.")
         return []

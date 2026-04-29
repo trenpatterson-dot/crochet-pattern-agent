@@ -74,6 +74,7 @@ def enrich(user: dict, patterns: list[dict]) -> list[dict]:
     if not patterns:
         return []
 
+    selected_test_mode = bool(user.get("_selected_test_mode"))
     budget = user.get("budget", "no limit")
     wants_video = user.get("wants_video", True)
     intel_context = competition_intelligence_agent.build_prompt_context()
@@ -99,7 +100,7 @@ For each pattern: list every material needed, do not include prices or total cos
     yt_results = []
     for pattern in patterns:
         query = f"crochet {pattern.get('title', '')} tutorial youtube"
-        hits = llm.ddg_search(query, max_results=6)
+        hits = llm.ddg_search(query, max_results=3 if selected_test_mode else 6)
         found_for_pattern = 0
         for hit in hits:
             href = hit.get("href", "")
@@ -127,7 +128,12 @@ For each pattern: list every material needed, do not include prices or total cos
                 {"title": item["title"], "url": item["url"]}
             )
 
-    raw = llm.chat(SYSTEM, user_msg, use_web_search=False, max_tokens=3500)
+    raw = llm.chat(
+        SYSTEM,
+        user_msg,
+        use_web_search=False,
+        max_tokens=1800 if selected_test_mode else 3500,
+    )
     data = llm.parse_json(raw)
 
     if data and "enriched" in data:

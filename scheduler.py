@@ -2,6 +2,7 @@
 Batch runner for all active subscribers.
 """
 
+import json
 import os
 import time
 from datetime import datetime, timedelta
@@ -21,6 +22,7 @@ from agents import competition_intelligence_agent
 LOG_DIR = Path(__file__).parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 LOCK_PATH = database.DB_PATH.parent / "scheduler.lock"
+SELECTED_TEST_STATUS_PATH = LOG_DIR / "selected_test_status.json"
 CADENCE_DAYS = 14
 
 
@@ -53,6 +55,57 @@ def _is_due(user: dict, now: datetime) -> tuple[bool, str]:
     return False, f"next_due={next_due.isoformat(timespec='seconds')}"
 
 
+def _mask_email(email: str) -> str:
+    email = (email or "").strip().lower()
+    if "@" not in email:
+        return email[:1] + "***" if email else ""
+    local, domain = email.split("@", 1)
+    masked_local = (local[:1] + "***") if local else "***"
+    return f"{masked_local}@{domain}"
+
+
+def _friendly_selected_status(result: dict) -> tuple[str, str]:
+    if result.get("ok"):
+        if result.get("dry_run"):
+            return "succeeded", "Selected subscriber dry-run completed. No live email was sent."
+        return "succeeded", "Selected subscriber send completed."
+
+    status = result.get("status")
+    if status == "llm_provider_error":
+        return (
+            "failed",
+            "Report generation failed because the LLM provider rejected the request. Check API credits or provider settings.",
+        )
+    if status == "no_patterns":
+        return "failed", "Report generation finished without usable patterns for that subscriber."
+    if status == "send_failed":
+        return "failed", "Report generation finished, but the mailer step failed."
+    if status == "inactive_user":
+        return "failed", "Selected subscriber is inactive and was not processed."
+    if status == "missing_user":
+        return "failed", "Selected subscriber was not found."
+    return "failed", "Selected subscriber test failed. Check the logs for details."
+
+
+def _write_selected_test_status(payload: dict) -> None:
+    SELECTED_TEST_STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = SELECTED_TEST_STATUS_PATH.with_suffix(".tmp")
+    temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    temp_path.replace(SELECTED_TEST_STATUS_PATH)
+
+
+def get_selected_test_status() -> dict | None:
+    if not SELECTED_TEST_STATUS_PATH.exists():
+        return None
+    try:
+        return json.loads(SELECTED_TEST_STATUS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {
+            "state": "failed",
+            "message": "Selected test status file could not be read.",
+        }
+
+
 def get_due_users(now: datetime | None = None) -> list[dict]:
     database.init_db()
     now = now or datetime.now()
@@ -68,12 +121,13 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
     database.init_db()
     started_at = datetime.now()
     user = database.get_user_by_email(email.strip().lower())
+    effective_dry_run = mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override
     if not user:
         return {
             "ok": False,
             "status": "missing_user",
             "email": email,
-            "dry_run": mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override,
+            "dry_run": effective_dry_run,
         }
 
     if not user.get("active"):
@@ -81,18 +135,22 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
             "ok": False,
             "status": "inactive_user",
             "email": user["email"],
-            "dry_run": mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override,
+            "dry_run": effective_dry_run,
         }
 
+    job_user = dict(user)
+    job_user["_selected_test_mode"] = True
+    job_user["_selected_test_dry_run"] = effective_dry_run
+
     try:
-        result = orchestrator.run(user)
+        result = orchestrator.run(job_user)
     except Exception as exc:
         return {
             "ok": False,
             "status": "llm_provider_error",
             "email": user["email"],
             "user_id": user["id"],
-            "dry_run": mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override,
+            "dry_run": effective_dry_run,
             "provider": shared_llm.provider_debug_summary().get("llm_provider"),
             "error": str(exc),
         }
@@ -102,12 +160,11 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
             "ok": False,
             "status": "no_patterns",
             "email": user["email"],
-            "dry_run": mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override,
+            "dry_run": effective_dry_run,
         }
 
     patterns = result["patterns"]
     ok = mailer.send_report(user, patterns, dry_run_override=dry_run_override)
-    effective_dry_run = mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override
     if ok and not effective_dry_run:
         database.save_report(user["id"], result)
 
@@ -120,6 +177,54 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
         "dry_run": effective_dry_run,
         "duration_seconds": round((datetime.now() - started_at).total_seconds(), 2),
     }
+
+
+def run_selected_subscriber_job(email: str, *, dry_run_override: bool | None = None) -> dict:
+    started_at = datetime.now()
+    effective_dry_run = mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override
+    provider = shared_llm.provider_debug_summary().get("llm_provider")
+    status_payload = {
+        "state": "started",
+        "message": "Selected subscriber test started.",
+        "email_masked": _mask_email(email),
+        "dry_run": effective_dry_run,
+        "provider": provider,
+        "started_at": started_at.isoformat(timespec="seconds"),
+        "finished_at": None,
+        "duration_seconds": None,
+        "error": None,
+    }
+    _write_selected_test_status(status_payload)
+
+    try:
+        result = send_selected_subscriber(email, dry_run_override=dry_run_override)
+    except Exception as exc:
+        result = {
+            "ok": False,
+            "status": "unexpected_error",
+            "email": email,
+            "dry_run": effective_dry_run,
+            "provider": provider,
+            "error": str(exc),
+        }
+
+    state, message = _friendly_selected_status(result)
+    finished_at = datetime.now()
+    status_payload.update(
+        {
+            "state": state,
+            "message": message,
+            "status": result.get("status"),
+            "email_masked": _mask_email(result.get("email", email)),
+            "user_id": result.get("user_id"),
+            "patterns_count": result.get("patterns_count"),
+            "finished_at": finished_at.isoformat(timespec="seconds"),
+            "duration_seconds": round((finished_at - started_at).total_seconds(), 2),
+            "error": result.get("error"),
+        }
+    )
+    _write_selected_test_status(status_payload)
+    return result
 
 
 def _acquire_lock() -> int | None:

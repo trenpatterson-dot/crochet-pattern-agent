@@ -159,6 +159,16 @@
     ✅ Selected subscriber marked due now — run one controlled test pass when ready.
   </div>
   {% endif %}
+  {% if request.args.get('test_started') %}
+  <div class="alert">
+    ✅ Selected subscriber test started in the background — refresh this page to watch the status.
+  </div>
+  {% endif %}
+  {% if request.args.get('test_busy') %}
+  <div class="alert" style="background:#FFF8E1;border-color:#FFE082;color:#8D6E00;">
+    ⚠️ A selected-subscriber test is already running. Wait for it to finish before starting another one.
+  </div>
+  {% endif %}
   {% if request.args.get('test_dry_run') %}
   <div class="alert">
     ✅ Selected subscriber dry-run completed — no live email was sent.
@@ -203,11 +213,38 @@
     {% if llm_debug.llm_provider == 'openai' %}
     · model {{ llm_debug.openai_model }}
     · API key {{ 'configured' if llm_debug.openai_configured else 'missing' }}
+    · timeout {{ llm_debug.openai_timeout_seconds }}s
     {% elif llm_debug.llm_provider == 'anthropic' %}
     · model {{ llm_debug.anthropic_model }}
     · API key {{ 'configured' if llm_debug.anthropic_configured else 'missing' }}
+    · timeout {{ llm_debug.anthropic_timeout_seconds }}s
     {% else %}
     · model {{ llm_debug.ollama_model }}
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if selected_test_status %}
+  <div class="alert" style="
+    {% if selected_test_status.state == 'failed' %}
+    background:#FCE4EC;border-color:#F48FB1;color:#B71C1C;
+    {% elif selected_test_status.state == 'started' %}
+    background:#FFF8E1;border-color:#FFE082;color:#8D6E00;
+    {% else %}
+    background:#E8F5E9;border-color:#A5D6A7;color:#1B5E20;
+    {% endif %}
+  ">
+    Selected test status: <strong>{{ selected_test_status.state | replace('_', ' ') | title }}</strong>
+    · Recipient {{ selected_test_status.email_masked or 'unknown' }}
+    · Mode {{ 'Dry Run' if selected_test_status.dry_run else 'Live Selected Only' }}
+    · Provider {{ selected_test_status.provider or 'unknown' }}
+    {% if selected_test_status.started_at %}· Started {{ selected_test_status.started_at }}{% endif %}
+    {% if selected_test_status.finished_at %}· Finished {{ selected_test_status.finished_at }}{% endif %}
+    {% if selected_test_status.duration_seconds is not none %}· Duration {{ selected_test_status.duration_seconds }}s{% endif %}
+    <br>
+    {{ selected_test_status.message }}
+    {% if selected_test_status.error %}
+    <br>
+    Detail: {{ selected_test_status.error }}
     {% endif %}
   </div>
   {% endif %}

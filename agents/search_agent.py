@@ -42,6 +42,7 @@ Return ONLY valid JSON: {{"candidates": [...]}}"""
 
 
 def find_candidates(user: dict) -> list[dict]:
+    selected_test_mode = bool(user.get("_selected_test_mode"))
     projects = ", ".join(user["project_types"])
     skill = user["skill_level"]
     colors = user.get("color_preferences", "")
@@ -78,9 +79,12 @@ Find 8 diverse candidates from trusted crochet sites."""
         )
 
     raw_results = []
-    for site in SEARCH_SEED_SITES:
+    seed_sites = SEARCH_SEED_SITES[:2] if selected_test_mode else SEARCH_SEED_SITES
+    ddg_max_results = 2 if selected_test_mode else 4
+    chat_max_tokens = 1200 if selected_test_mode else 2500
+    for site in seed_sites:
         q = f"{skill} {projects} crochet pattern {colors} site:{site}"
-        raw_results.extend(llm.ddg_search(q, max_results=4))
+        raw_results.extend(llm.ddg_search(q, max_results=ddg_max_results))
 
     if raw_results:
         context = json.dumps([
@@ -89,7 +93,7 @@ Find 8 diverse candidates from trusted crochet sites."""
         ], indent=2)
         user_msg += f"\n\nWeb search results to draw from when useful:\n{context}"
 
-    raw = llm.chat(SYSTEM, user_msg, use_web_search=False, max_tokens=2500)
+    raw = llm.chat(SYSTEM, user_msg, use_web_search=False, max_tokens=chat_max_tokens)
     data = llm.parse_json(raw)
 
     if data and "candidates" in data:

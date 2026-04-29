@@ -46,6 +46,7 @@ def curate(user: dict, candidates: list[dict]) -> list[dict]:
     if not candidates:
         return []
 
+    selected_test_mode = bool(user.get("_selected_test_mode"))
     projects = ", ".join(user.get("project_types", []))
     yarns = ", ".join(user.get("yarn_weights", [])) or "any"
     colors = user.get("color_preferences", "no preference")
@@ -78,7 +79,7 @@ Apply your expert crochet judgment. Remove poor fits. Rank the top 3 found patte
             f"\n{intel_context}"
         )
 
-    raw = llm.chat(SYSTEM, user_msg, max_tokens=1800)
+    raw = llm.chat(SYSTEM, user_msg, max_tokens=1200 if selected_test_mode else 1800)
     data = llm.parse_json(raw)
 
     if data and "top_found" in data:

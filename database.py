@@ -1,6 +1,7 @@
 import json
 import os
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -29,9 +30,22 @@ def get_conn():
     return conn
 
 
+@contextmanager
+def connect():
+    conn = get_conn()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with get_conn() as conn:
+    with connect() as conn:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS users (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,7 +100,7 @@ def init_db():
 def upsert_user(name, email, skill_level, project_types, yarn_weights,
                 time_commitment, color_preferences, aesthetic, budget,
                 free_only, wants_video, wants_printable, special_interests):
-    with get_conn() as conn:
+    with connect() as conn:
         existing = conn.execute(
             "SELECT id, active, created_at, updated_at FROM users WHERE email=?",
             (email,),
@@ -141,13 +155,13 @@ def upsert_user(name, email, skill_level, project_types, yarn_weights,
 
 
 def get_active_users():
-    with get_conn() as conn:
+    with connect() as conn:
         rows = conn.execute("SELECT * FROM users WHERE active=1").fetchall()
     return [_deserialize(dict(r)) for r in rows]
 
 
 def get_all_users():
-    with get_conn() as conn:
+    with connect() as conn:
         rows = conn.execute(
             "SELECT * FROM users ORDER BY COALESCE(updated_at, created_at) DESC, id DESC"
         ).fetchall()
@@ -155,13 +169,13 @@ def get_all_users():
 
 
 def get_user_by_email(email: str):
-    with get_conn() as conn:
+    with connect() as conn:
         row = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
     return _deserialize(dict(row)) if row else None
 
 
 def get_storage_debug_summary():
-    with get_conn() as conn:
+    with connect() as conn:
         total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         active_users = conn.execute("SELECT COUNT(*) FROM users WHERE active=1").fetchone()[0]
         inactive_users = conn.execute("SELECT COUNT(*) FROM users WHERE active=0").fetchone()[0]
@@ -176,12 +190,12 @@ def get_storage_debug_summary():
 
 
 def deactivate_user(email):
-    with get_conn() as conn:
+    with connect() as conn:
         conn.execute("UPDATE users SET active=0 WHERE email=?", (email,))
 
 
 def reset_user_due_now(email):
-    with get_conn() as conn:
+    with connect() as conn:
         conn.execute(
             "UPDATE users SET last_report_sent=NULL WHERE email=?",
             (email,),
@@ -189,7 +203,7 @@ def reset_user_due_now(email):
 
 
 def save_report(user_id, patterns):
-    with get_conn() as conn:
+    with connect() as conn:
         conn.execute(
             "INSERT INTO reports (user_id, patterns_json) VALUES (?, ?)",
             (user_id, json.dumps(patterns))
@@ -201,7 +215,7 @@ def save_report(user_id, patterns):
 
 
 def get_reports_for_user(user_id, limit=5):
-    with get_conn() as conn:
+    with connect() as conn:
         rows = conn.execute(
             "SELECT * FROM reports WHERE user_id=? ORDER BY sent_at DESC LIMIT ?",
             (user_id, limit)
@@ -210,7 +224,7 @@ def get_reports_for_user(user_id, limit=5):
 
 
 def save_competition_run(started_at, finished_at, status, summary, artifacts):
-    with get_conn() as conn:
+    with connect() as conn:
         cursor = conn.execute(
             """
             INSERT INTO competition_runs (started_at, finished_at, status, summary_json)
@@ -236,7 +250,7 @@ def save_competition_run(started_at, finished_at, status, summary, artifacts):
 
 
 def get_latest_competition_run():
-    with get_conn() as conn:
+    with connect() as conn:
         row = conn.execute(
             """
             SELECT *
@@ -253,7 +267,7 @@ def get_latest_competition_run():
 
 
 def get_latest_competition_artifact(artifact_name):
-    with get_conn() as conn:
+    with connect() as conn:
         row = conn.execute(
             """
             SELECT artifact_json, created_at

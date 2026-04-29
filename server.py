@@ -27,6 +27,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
 UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", app.secret_key)
 RUN_LOCK = threading.Lock()
 INTEL_LOCK = threading.Lock()
+TEST_LOCK = threading.Lock()
 logger = logging.getLogger(__name__)
 
 PROJECT_TYPES = [
@@ -137,6 +138,43 @@ def _start_competition_intel_run() -> bool:
         return False
 
     worker = threading.Thread(target=_competition_intel_worker, daemon=True)
+    worker.start()
+    return True
+
+
+def _selected_test_worker(email: str, dry_run_override: bool) -> None:
+    try:
+        logger.info(
+            "admin send_test worker_started email=%s dry_run=%s db_path=%s",
+            _mask_email(email),
+            dry_run_override,
+            database.DB_PATH,
+        )
+        result = scheduler.run_selected_subscriber_job(
+            email,
+            dry_run_override=dry_run_override,
+        )
+        logger.info(
+            "admin send_test worker_finished email=%s status=%s dry_run=%s patterns=%s db_path=%s",
+            _mask_email(result.get("email", email)),
+            result.get("status"),
+            result.get("dry_run"),
+            result.get("patterns_count"),
+            database.DB_PATH,
+        )
+    finally:
+        TEST_LOCK.release()
+
+
+def _start_selected_test_run(email: str, dry_run_override: bool) -> bool:
+    if not TEST_LOCK.acquire(blocking=False):
+        return False
+
+    worker = threading.Thread(
+        target=_selected_test_worker,
+        args=(email, dry_run_override),
+        daemon=True,
+    )
     worker.start()
     return True
 
@@ -283,6 +321,7 @@ def admin():
         due_summary=due_summary,
         mailer_debug=transport,
         llm_debug=llm_debug,
+        selected_test_status=scheduler.get_selected_test_status(),
     )
 
 
@@ -341,29 +380,15 @@ def admin_send_test():
         mode,
         database.DB_PATH,
     )
-    result = scheduler.send_selected_subscriber(email, dry_run_override=dry_run_override)
-    logger.info(
-        "admin send_test result email=%s status=%s dry_run=%s patterns=%s db_path=%s",
-        _mask_email(result.get("email", email)),
-        result.get("status"),
-        result.get("dry_run"),
-        result.get("patterns_count"),
-        database.DB_PATH,
-    )
-    if result.get("ok"):
-        query = "test_sent=1" if not result.get("dry_run") else "test_dry_run=1"
-        return redirect(url_for("admin") + f"?{query}")
-
-    if result.get("status") == "llm_provider_error":
+    if not _start_selected_test_run(email, dry_run_override):
         logger.warning(
-            "admin send_test llm_provider_error provider=%s email=%s db_path=%s",
-            result.get("provider"),
-            _mask_email(result.get("email", email)),
+            "admin send_test blocked already_running email=%s db_path=%s",
+            _mask_email(email),
             database.DB_PATH,
         )
-        return redirect(url_for("admin") + "?llm_failed=1")
+        return redirect(url_for("admin") + "?test_busy=1")
 
-    return redirect(url_for("admin") + "?test_failed=1")
+    return redirect(url_for("admin") + "?test_started=1")
 
 
 @app.route("/internal/scheduler/run", methods=["POST"])
