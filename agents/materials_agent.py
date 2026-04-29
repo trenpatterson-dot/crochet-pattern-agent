@@ -82,6 +82,7 @@ def enrich(user: dict, patterns: list[dict], return_meta: bool = False):
         return []
 
     selected_test_mode = bool(user.get("_selected_test_mode"))
+    all_original_patterns = all(bool(pattern.get("is_original")) for pattern in patterns)
     budget = user.get("budget", "no limit")
     wants_video = user.get("wants_video", True)
     intel_context = competition_intelligence_agent.build_prompt_context()
@@ -105,23 +106,24 @@ For each pattern: list every material needed, do not include prices or total cos
         )
 
     yt_results = []
-    for pattern in patterns:
-        query = f"crochet {pattern.get('title', '')} tutorial youtube"
-        hits = llm.ddg_search(query, max_results=3 if selected_test_mode else 6)
-        found_for_pattern = 0
-        for hit in hits:
-            href = hit.get("href", "")
-            if "youtube.com/watch" in href or "youtu.be/" in href or "youtube.com/shorts/" in href:
-                yt_results.append(
-                    {
-                        "pattern": pattern.get("title"),
-                        "url": href,
-                        "title": hit.get("title"),
-                    }
-                )
-                found_for_pattern += 1
-                if found_for_pattern >= 3:
-                    break
+    if not (selected_test_mode and all_original_patterns):
+        for pattern in patterns:
+            query = f"crochet {pattern.get('title', '')} tutorial youtube"
+            hits = llm.ddg_search(query, max_results=3 if selected_test_mode else 6)
+            found_for_pattern = 0
+            for hit in hits:
+                href = hit.get("href", "")
+                if "youtube.com/watch" in href or "youtu.be/" in href or "youtube.com/shorts/" in href:
+                    yt_results.append(
+                        {
+                            "pattern": pattern.get("title"),
+                            "url": href,
+                            "title": hit.get("title"),
+                        }
+                    )
+                    found_for_pattern += 1
+                    if found_for_pattern >= 3:
+                        break
 
     if yt_results:
         user_msg += f"\n\nYouTube results:\n{json.dumps(yt_results, indent=2)}"
@@ -139,7 +141,7 @@ For each pattern: list every material needed, do not include prices or total cos
         SYSTEM,
         user_msg,
         use_web_search=False,
-        max_tokens=1800 if selected_test_mode else 3500,
+        max_tokens=1200 if selected_test_mode else 3500,
     )
     data = llm.parse_json(raw)
     meta = {

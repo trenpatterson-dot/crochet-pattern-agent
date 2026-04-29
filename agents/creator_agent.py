@@ -117,7 +117,7 @@ Special Interests: {interests or "none"}
 {fallback_note}
 Keep each pattern personal, mathematically consistent, and easy to follow."""
 
-    raw = llm.chat(SYSTEM, user_msg, max_tokens=2200 if selected_test_mode else 2800)
+    raw = llm.chat(SYSTEM, user_msg, max_tokens=1600 if selected_test_mode else 2800)
     data = llm.parse_json(raw)
     meta = {
         "requested_count": requested_count,

@@ -25,6 +25,8 @@ services:
         value: gpt-5-mini
       - key: OPENAI_TIMEOUT_SECONDS
         value: "25"
+      - key: SELECTED_TEST_OPENAI_TIMEOUT_SECONDS
+        value: "60"
       - key: GMAIL_USER
         sync: false
       - key: GMAIL_APP_PASSWORD

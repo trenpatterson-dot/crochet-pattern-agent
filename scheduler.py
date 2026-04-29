@@ -85,10 +85,18 @@ def _friendly_selected_status(result: dict) -> tuple[str, str]:
         return "failed", "Compliance and creator stages both returned 0 usable patterns."
     if status == "final_zero_patterns":
         return "failed", "The report pipeline completed, but 0 usable patterns remained after enrichment and validation."
-    if status == "llm_provider_error":
+    if status == "llm_timeout":
+        return "failed", "OpenAI timed out while generating the report. Try again or increase the selected-test timeout."
+    if status == "llm_network_error":
+        return "failed", "OpenAI network connection failed while generating the report. Try again and check outbound connectivity."
+    if status == "llm_api_key_error":
+        return "failed", "OpenAI authentication failed. Check the API key and provider settings."
+    if status == "llm_credit_error":
+        return "failed", "OpenAI credits or rate limits blocked the request. Check quota and retry."
+    if status == "llm_provider_rejected":
         return (
             "failed",
-            "Report generation failed because the LLM provider rejected the request. Check API credits or provider settings.",
+            "The LLM provider rejected the request. Check provider settings and request parameters.",
         )
     if status == "no_patterns":
         return "failed", "Report generation finished without usable patterns for that subscriber."
@@ -157,11 +165,22 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
     job_user["_selected_test_dry_run"] = effective_dry_run
 
     try:
-        result = orchestrator.run(job_user)
+        with shared_llm.selected_test_context():
+            result = orchestrator.run(job_user)
+    except shared_llm.LLMServiceError as exc:
+        return {
+            "ok": False,
+            "status": exc.code,
+            "email": user["email"],
+            "user_id": user["id"],
+            "dry_run": effective_dry_run,
+            "provider": exc.provider,
+            "error": str(exc),
+        }
     except Exception as exc:
         return {
             "ok": False,
-            "status": "llm_provider_error",
+            "status": "llm_provider_rejected",
             "email": user["email"],
             "user_id": user["id"],
             "dry_run": effective_dry_run,

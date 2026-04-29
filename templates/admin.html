@@ -186,7 +186,7 @@
   {% endif %}
   {% if request.args.get('llm_failed') %}
   <div class="alert" style="background:#FCE4EC;border-color:#F48FB1;color:#B71C1C;">
-    ⚠️ Report generation failed because the LLM provider rejected the request. Check API credits or provider settings.
+    ⚠️ Report generation failed. Check the selected test status details below for the exact timeout, network, quota, or provider error.
   </div>
   {% endif %}
   {% if request.args.get('live_blocked') %}
@@ -214,6 +214,7 @@
     · model {{ llm_debug.openai_model }}
     · API key {{ 'configured' if llm_debug.openai_configured else 'missing' }}
     · timeout {{ llm_debug.openai_timeout_seconds }}s
+    · selected test timeout {{ llm_debug.selected_test_openai_timeout_seconds }}s
     {% elif llm_debug.llm_provider == 'anthropic' %}
     · model {{ llm_debug.anthropic_model }}
     · API key {{ 'configured' if llm_debug.anthropic_configured else 'missing' }}
@@ -248,6 +249,10 @@
     · Filter {{ selected_test_status.diagnostics.filtered_candidates_count or 0 }}
     · Originals {{ selected_test_status.diagnostics.original_created_count or 0 }}
     · Final {{ selected_test_status.diagnostics.final_usable_pattern_count or 0 }}
+    {% if selected_test_status.diagnostics.timings_seconds %}
+    <br>
+    Timings {{ selected_test_status.diagnostics.timings_seconds }}
+    {% endif %}
     {% endif %}
     {% if selected_test_status.error %}
     <br>

@@ -4,8 +4,11 @@ Shared LLM client — routes to Anthropic, OpenAI, or Ollama based on LLM_PROVID
 
 import os
 import re
+import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from dotenv import dotenv_values
 
@@ -24,6 +27,36 @@ OLLAMA_MODEL     = _get("OLLAMA_MODEL", "llama3.2:latest")
 OLLAMA_BASE_URL  = _get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 ANTHROPIC_TIMEOUT_SECONDS = float(_get("ANTHROPIC_TIMEOUT_SECONDS", "90"))
 OPENAI_TIMEOUT_SECONDS = float(_get("OPENAI_TIMEOUT_SECONDS", "25"))
+SELECTED_TEST_OPENAI_TIMEOUT_SECONDS = float(_get("SELECTED_TEST_OPENAI_TIMEOUT_SECONDS", "60"))
+
+_OPENAI_TIMEOUT_OVERRIDE: ContextVar[float | None] = ContextVar("openai_timeout_override", default=None)
+_SELECTED_TEST_MODE: ContextVar[bool] = ContextVar("selected_test_mode", default=False)
+
+
+class LLMServiceError(RuntimeError):
+    def __init__(self, code: str, message: str, *, provider: str):
+        super().__init__(message)
+        self.code = code
+        self.provider = provider
+
+
+@contextmanager
+def selected_test_context():
+    timeout_token = _OPENAI_TIMEOUT_OVERRIDE.set(SELECTED_TEST_OPENAI_TIMEOUT_SECONDS)
+    mode_token = _SELECTED_TEST_MODE.set(True)
+    try:
+        yield
+    finally:
+        _OPENAI_TIMEOUT_OVERRIDE.reset(timeout_token)
+        _SELECTED_TEST_MODE.reset(mode_token)
+
+
+def in_selected_test_mode() -> bool:
+    return bool(_SELECTED_TEST_MODE.get())
+
+
+def _current_openai_timeout_seconds() -> float:
+    return _OPENAI_TIMEOUT_OVERRIDE.get() or OPENAI_TIMEOUT_SECONDS
 
 
 def chat(system: str, user_msg: str, use_web_search: bool = False, max_tokens: int = 4096) -> str:
@@ -43,7 +76,9 @@ def provider_debug_summary() -> dict:
         "openai_configured": bool(OPENAI_API_KEY),
         "anthropic_configured": bool(ANTHROPIC_API_KEY),
         "openai_timeout_seconds": OPENAI_TIMEOUT_SECONDS,
+        "selected_test_openai_timeout_seconds": SELECTED_TEST_OPENAI_TIMEOUT_SECONDS,
         "anthropic_timeout_seconds": ANTHROPIC_TIMEOUT_SECONDS,
+        "selected_test_mode": in_selected_test_mode(),
     }
 
 
@@ -99,14 +134,23 @@ def _anthropic(system: str, user_msg: str, use_web_search: bool, max_tokens: int
 
 
 def _openai(system: str, user_msg: str, max_tokens: int) -> str:
-    from openai import APIConnectionError, APIError, APITimeoutError, OpenAI, RateLimitError
+    from openai import (
+        APIConnectionError,
+        APIError,
+        APIStatusError,
+        APITimeoutError,
+        OpenAI,
+        RateLimitError,
+    )
 
     if not OPENAI_API_KEY:
-        raise RuntimeError("OPENAI_API_KEY is not configured.")
+        raise LLMServiceError("llm_api_key_error", "OPENAI_API_KEY is not configured.", provider="openai")
+
+    timeout_seconds = _current_openai_timeout_seconds()
 
     client = OpenAI(
         api_key=OPENAI_API_KEY,
-        timeout=OPENAI_TIMEOUT_SECONDS,
+        timeout=timeout_seconds,
     )
     kwargs = dict(
         model=OPENAI_MODEL,
@@ -115,25 +159,79 @@ def _openai(system: str, user_msg: str, max_tokens: int) -> str:
         max_output_tokens=max_tokens,
     )
 
+    started = time.perf_counter()
     try:
         with ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(client.responses.create, **kwargs)
-            response = future.result(timeout=OPENAI_TIMEOUT_SECONDS)
+            response = future.result(timeout=timeout_seconds)
     except FutureTimeoutError as exc:
-        raise RuntimeError(
-            f"OpenAI call exceeded {OPENAI_TIMEOUT_SECONDS:.0f}s."
+        duration = round(time.perf_counter() - started, 2)
+        print(f"    [LLM] OpenAI timeout duration_seconds={duration} timeout_seconds={timeout_seconds:.0f}")
+        raise LLMServiceError(
+            "llm_timeout",
+            f"OpenAI call exceeded {timeout_seconds:.0f}s.",
+            provider="openai",
         ) from exc
     except APITimeoutError as exc:
-        raise RuntimeError(
-            f"OpenAI request timed out after {OPENAI_TIMEOUT_SECONDS:.0f}s."
+        duration = round(time.perf_counter() - started, 2)
+        print(f"    [LLM] OpenAI api_timeout duration_seconds={duration} timeout_seconds={timeout_seconds:.0f}")
+        raise LLMServiceError(
+            "llm_timeout",
+            f"OpenAI request timed out after {timeout_seconds:.0f}s.",
+            provider="openai",
         ) from exc
     except APIConnectionError as exc:
-        raise RuntimeError(f"OpenAI connection failed: {exc}") from exc
+        duration = round(time.perf_counter() - started, 2)
+        print(f"    [LLM] OpenAI network_error duration_seconds={duration} timeout_seconds={timeout_seconds:.0f}")
+        raise LLMServiceError(
+            "llm_network_error",
+            f"OpenAI connection failed: {exc}",
+            provider="openai",
+        ) from exc
     except RateLimitError as exc:
-        raise RuntimeError("OpenAI rate limit reached. Check quota and retry.") from exc
+        duration = round(time.perf_counter() - started, 2)
+        print(f"    [LLM] OpenAI rate_limit duration_seconds={duration} timeout_seconds={timeout_seconds:.0f}")
+        raise LLMServiceError(
+            "llm_credit_error",
+            "OpenAI rate limit or quota limit reached. Check credits and retry.",
+            provider="openai",
+        ) from exc
+    except APIStatusError as exc:
+        duration = round(time.perf_counter() - started, 2)
+        status_code = getattr(exc, "status_code", None)
+        print(
+            f"    [LLM] OpenAI status_error duration_seconds={duration} timeout_seconds={timeout_seconds:.0f} status_code={status_code}"
+        )
+        if status_code in (401, 403):
+            raise LLMServiceError(
+                "llm_api_key_error",
+                f"OpenAI rejected the API credentials (status {status_code}).",
+                provider="openai",
+            ) from exc
+        if status_code == 429:
+            raise LLMServiceError(
+                "llm_credit_error",
+                "OpenAI rate limit or quota limit reached. Check credits and retry.",
+                provider="openai",
+            ) from exc
+        raise LLMServiceError(
+            "llm_provider_rejected",
+            f"OpenAI rejected the request (status {status_code}).",
+            provider="openai",
+        ) from exc
     except APIError as exc:
-        raise RuntimeError(f"OpenAI API request failed: {exc}") from exc
+        duration = round(time.perf_counter() - started, 2)
+        print(f"    [LLM] OpenAI api_error duration_seconds={duration} timeout_seconds={timeout_seconds:.0f}")
+        raise LLMServiceError(
+            "llm_provider_rejected",
+            f"OpenAI API request failed: {exc}",
+            provider="openai",
+        ) from exc
 
+    duration = round(time.perf_counter() - started, 2)
+    print(
+        f"    [LLM] OpenAI success duration_seconds={duration} timeout_seconds={timeout_seconds:.0f} max_tokens={max_tokens}"
+    )
     return getattr(response, "output_text", "") or ""
 
 
