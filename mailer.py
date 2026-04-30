@@ -36,6 +36,8 @@ RESEND_USER_AGENT = os.getenv("RESEND_USER_AGENT", "crochet-pattern-agent/1.0").
 UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me"))
 MATERIALS_SECTION_HEADER = "\U0001F9F6 What You\u2019ll Need (Quick Buy Links)"
 _LAST_SEND_ERROR: dict | None = None
+BRAND_NAME = "StitchFlow Labs"
+NEWSLETTER_NAME = "StitchFlow Labs Crochet Picks"
 
 SKILL_COLORS = {
     "beginner": "#4CAF50",
@@ -69,7 +71,7 @@ def _summary_text(found_count: int, original_count: int) -> str:
     if found_count:
         parts.append(f"{found_count} curated find{'s' if found_count != 1 else ''}")
     if original_count:
-        parts.append(f"{original_count} made just for you")
+        parts.append(f"{original_count} original design{'s' if original_count != 1 else ''} created for you")
     return " + ".join(parts) if parts else "personalized picks"
 
 
@@ -106,7 +108,7 @@ def _safe_from_value() -> str:
     if _email_provider() == "resend":
         return RESEND_FROM or "(missing RESEND_FROM)"
     if GMAIL_USER:
-        return f"Crochet Pattern Finder <{GMAIL_USER}>"
+        return f"{BRAND_NAME} <{GMAIL_USER}>"
     return "(missing SMTP sender)"
 
 
@@ -326,7 +328,7 @@ def _original_pattern_block(p: dict, idx: int) -> str:
         <span style="font-size:20px;font-weight:800;">#{idx}</span>
         <span style="font-size:12px;margin-left:8px;background:rgba(255,255,255,0.25);
           padding:3px 10px;border-radius:12px;font-weight:700;display:inline-block;">
-          Original - Made Just for You
+          Original Pattern | Created for You
         </span>
         <span style="float:right;background:rgba(255,255,255,0.3);color:#fff;
           padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;">FREE</span>
@@ -386,7 +388,7 @@ def _original_pattern_block(p: dict, idx: int) -> str:
       {f'<p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#7B5800;">Pattern Notes:</p><ul style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#555;line-height:1.7;">{notes_html}</ul>' if notes_html else ""}
       <p style="margin:0;font-size:11px;color:#aaa;border-top:1px solid #FDD835;
                 padding-top:10px;">
-        Original pattern created exclusively for you - Personal use - Free forever
+        Original StitchFlow Labs pattern for personal use. No external pattern link required.
       </p>
     </td></tr>
   </table>
@@ -420,7 +422,7 @@ def build_html(user: dict, patterns: list[dict]) -> str:
     footer_links_html = "&nbsp;|&nbsp;".join(footer_links)
 
     intro_line = (
-        f"Here are your personalized crochet patterns - {summary_text}, tailored to your "
+        f"Here is your latest StitchFlow Labs crochet edit: {summary_text}, tailored to your "
         f"<strong>{user['skill_level']}</strong> skill level"
         f"{f' and <strong>{aesthetic}</strong> aesthetic' if aesthetic else ''}"
         f"{f' with a <strong>{budget}</strong> budget' if budget else ''}."
@@ -431,7 +433,7 @@ def build_html(user: dict, patterns: list[dict]) -> str:
   <tr><td style="padding:10px 32px 10px;">
     <p style="margin:0;font-size:11px;font-weight:800;text-transform:uppercase;
               letter-spacing:1.2px;color:#9C27B0;">
-      Curated from trusted sites
+      Curated from trusted sources
     </p>
   </td></tr>
   <table width="100%" cellpadding="0" cellspacing="0">
@@ -444,7 +446,7 @@ def build_html(user: dict, patterns: list[dict]) -> str:
   <tr><td style="padding:{'10px' if not found else '6px'} 32px 10px;">
     <p style="margin:0;font-size:11px;font-weight:800;text-transform:uppercase;
               letter-spacing:1.2px;color:#F57F17;">
-      Original patterns made just for you
+      Original patterns created by StitchFlow Labs
     </p>
   </td></tr>
   <table width="100%" cellpadding="0" cellspacing="0">
@@ -456,7 +458,7 @@ def build_html(user: dict, patterns: list[dict]) -> str:
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>Your Custom Crochet Picks</title></head>
+<title>{NEWSLETTER_NAME}</title></head>
 <body style="margin:0;padding:0;background:#F3EEF8;font-family:'Segoe UI',Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0">
 <tr><td align="center" style="padding:32px 12px;">
@@ -465,12 +467,14 @@ def build_html(user: dict, patterns: list[dict]) -> str:
          box-shadow:0 4px 24px rgba(106,27,154,0.10);max-width:620px;">
   <tr><td style="background:linear-gradient(135deg,#4A148C,#9C27B0,#CE93D8);
                  padding:40px 36px 32px;text-align:center;">
-    <div style="font-size:52px;line-height:1;margin-bottom:12px;">Yarn</div>
+    <div style="font-size:18px;line-height:1.2;margin-bottom:12px;font-weight:800;letter-spacing:1.1px;color:rgba(255,255,255,0.92);">
+      STITCHFLOW LABS
+    </div>
     <h1 style="margin:0 0 6px;color:#fff;font-size:25px;letter-spacing:0.5px;">
-      Your Custom Crochet Picks
+      Crochet Picks Made for You
     </h1>
     <p style="margin:0 0 10px;color:rgba(255,255,255,0.88);font-size:13px;line-height:1.6;">
-      A calm, curated crochet newsletter with patterns worth making.
+      Original designs and curated finds selected for your next project.
     </p>
     <p style="margin:0;color:rgba(255,255,255,0.85);font-size:13px;">
       {month} - {summary_text}
@@ -507,7 +511,7 @@ def build_html(user: dict, patterns: list[dict]) -> str:
       Happy crocheting!
     </p>
     <p style="margin:6px 0 0;font-size:13px;color:#999;">
-      - Your Crochet Pattern Finder
+      - {BRAND_NAME}
     </p>
   </td></tr>
   <tr><td style="background:#F5F0FA;padding:18px 32px;text-align:center;
@@ -542,7 +546,7 @@ def _build_message_content(user: dict, patterns: list[dict]) -> tuple[str, str, 
     originals = [p for p in patterns if p.get("is_original")]
     html = build_html(user, patterns)
     summary_text = _summary_text(len(found), len(originals))
-    subject = f"Your Custom Crochet Picks ({summary_text})"
+    subject = f"{NEWSLETTER_NAME} ({summary_text})"
 
     plain = [f"Hey {user['name']}!", "", "Here are your personalized crochet patterns:", ""]
     for i, p in enumerate(found, 1):
@@ -562,12 +566,12 @@ def _build_message_content(user: dict, patterns: list[dict]) -> tuple[str, str, 
         ]
     for i, p in enumerate(originals, len(found) + 1):
         plain += [
-            f"{i}. [ORIGINAL] {p.get('title','')}",
+            f"{i}. [ORIGINAL PATTERN] {p.get('title','')}",
             f"   Skill: {p.get('skill_level','').capitalize()} | Time: {p.get('estimated_time','')}",
             f"   {p.get('why_created','')}",
             "",
         ]
-    plain.append("Happy crocheting!")
+    plain.append(f"Happy crocheting,\n{BRAND_NAME}")
     return subject, "\n".join(plain), html, summary_text
 
 
@@ -601,7 +605,7 @@ def _send_via_smtp(
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = f"Crochet Pattern Finder <{GMAIL_USER}>"
+    msg["From"] = f"{BRAND_NAME} <{GMAIL_USER}>"
     msg["To"] = user["email"]
     msg.attach(MIMEText(plain, "plain", "utf-8"))
     msg.attach(MIMEText(html, "html", "utf-8"))
