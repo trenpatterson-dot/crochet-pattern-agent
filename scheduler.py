@@ -101,6 +101,18 @@ def _friendly_selected_status(result: dict) -> tuple[str, str]:
     if status == "no_patterns":
         return "failed", "Report generation finished without usable patterns for that subscriber."
     if status == "send_failed":
+        mailer_error = result.get("mailer_error") or {}
+        if mailer_error.get("provider") == "resend" and mailer_error.get("status_code") == 403:
+            body = mailer_error.get("resend_body") or mailer_error.get("message") or ""
+            if "1010" in body:
+                return (
+                    "failed",
+                    "Resend blocked the request because the HTTP User-Agent header was missing.",
+                )
+            if mailer_error.get("message"):
+                return "failed", f"Resend rejected the email request: {mailer_error['message']}"
+        if mailer_error.get("message"):
+            return "failed", f"Report generation finished, but email delivery failed: {mailer_error['message']}"
         return "failed", "Report generation finished, but the mailer step failed."
     if status == "inactive_user":
         return "failed", "Selected subscriber is inactive and was not processed."
@@ -223,6 +235,7 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
 
     patterns = result["patterns"]
     ok = mailer.send_report(user, patterns, dry_run_override=dry_run_override)
+    mailer_error = mailer.last_send_error()
     if ok and not effective_dry_run:
         database.save_report(user["id"], result)
 
@@ -235,6 +248,7 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
         "dry_run": effective_dry_run,
         "duration_seconds": round((datetime.now() - started_at).total_seconds(), 2),
         "diagnostics": diagnostics,
+        "mailer_error": mailer_error,
     }
 
 
@@ -242,16 +256,19 @@ def run_selected_subscriber_job(email: str, *, dry_run_override: bool | None = N
     started_at = datetime.now()
     effective_dry_run = mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override
     provider = shared_llm.provider_debug_summary().get("llm_provider")
+    email_provider = mailer.transport_debug_summary().get("email_provider")
     status_payload = {
         "state": "started",
         "message": "Selected subscriber test started.",
         "email_masked": _mask_email(email),
         "dry_run": effective_dry_run,
         "provider": provider,
+        "email_provider": email_provider,
         "started_at": started_at.isoformat(timespec="seconds"),
         "finished_at": None,
         "duration_seconds": None,
         "error": None,
+        "mailer_error": None,
     }
     _write_selected_test_status(status_payload)
 
@@ -264,6 +281,7 @@ def run_selected_subscriber_job(email: str, *, dry_run_override: bool | None = N
             "email": email,
             "dry_run": effective_dry_run,
             "provider": provider,
+            "email_provider": email_provider,
             "error": str(exc),
         }
 
@@ -280,6 +298,7 @@ def run_selected_subscriber_job(email: str, *, dry_run_override: bool | None = N
             "finished_at": finished_at.isoformat(timespec="seconds"),
             "duration_seconds": round((finished_at - started_at).total_seconds(), 2),
             "error": result.get("error"),
+            "mailer_error": result.get("mailer_error"),
             "diagnostics": result.get("diagnostics"),
         }
     )

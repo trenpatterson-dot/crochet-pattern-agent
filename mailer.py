@@ -32,8 +32,10 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
 RESEND_FROM = os.getenv("RESEND_FROM", "").strip()
 RESEND_API_URL = os.getenv("RESEND_API_URL", "https://api.resend.com/emails").strip()
 RESEND_TIMEOUT_SECONDS = float(os.getenv("RESEND_TIMEOUT_SECONDS", "20"))
+RESEND_USER_AGENT = os.getenv("RESEND_USER_AGENT", "crochet-pattern-agent/1.0").strip()
 UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me"))
 MATERIALS_SECTION_HEADER = "\U0001F9F6 What You\u2019ll Need (Quick Buy Links)"
+_LAST_SEND_ERROR: dict | None = None
 
 SKILL_COLORS = {
     "beginner": "#4CAF50",
@@ -71,6 +73,29 @@ def _summary_text(found_count: int, original_count: int) -> str:
     return " + ".join(parts) if parts else "personalized picks"
 
 
+def _mask_email(email: str) -> str:
+    email = (email or "").strip().lower()
+    if "@" not in email:
+        return email[:1] + "***" if email else ""
+    local, domain = email.split("@", 1)
+    masked_local = (local[:1] + "***") if local else "***"
+    return f"{masked_local}@{domain}"
+
+
+def _set_last_send_error(**payload) -> None:
+    global _LAST_SEND_ERROR
+    _LAST_SEND_ERROR = {k: v for k, v in payload.items() if v not in (None, "")}
+
+
+def _clear_last_send_error() -> None:
+    global _LAST_SEND_ERROR
+    _LAST_SEND_ERROR = None
+
+
+def last_send_error() -> dict | None:
+    return dict(_LAST_SEND_ERROR) if _LAST_SEND_ERROR else None
+
+
 def _email_provider() -> str:
     if EMAIL_PROVIDER in {"smtp", "resend"}:
         return EMAIL_PROVIDER
@@ -99,6 +124,7 @@ def transport_debug_summary() -> dict:
         "resend_api_key_configured": bool(RESEND_API_KEY),
         "resend_from_configured": bool(RESEND_FROM),
         "resend_configured": bool(RESEND_API_KEY and RESEND_FROM),
+        "resend_user_agent": RESEND_USER_AGENT,
     }
 
 
@@ -527,6 +553,11 @@ def _send_via_smtp(
     effective_dry_run: bool,
 ) -> bool:
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        _set_last_send_error(
+            provider="smtp",
+            error="missing_smtp_credentials",
+            message="SMTP credentials are not configured.",
+        )
         print(
             "  [Mailer] ERROR: SMTP credentials not configured "
             f"(host={SMTP_HOST} port={SMTP_PORT} ssl={SMTP_USE_SSL})."
@@ -554,6 +585,11 @@ def _send_via_smtp(
         print(f"  [Mailer] Sent to {user['email']} ({summary_text})")
         return True
     except Exception as e:
+        _set_last_send_error(
+            provider="smtp",
+            error="smtp_send_failed",
+            message=str(e),
+        )
         print(
             f"  [Mailer] ERROR: {e} "
             f"(host={SMTP_HOST} port={SMTP_PORT} ssl={SMTP_USE_SSL} dry_run={effective_dry_run})"
@@ -562,10 +598,23 @@ def _send_via_smtp(
 
 
 def _send_via_resend(user: dict, subject: str, plain: str, html: str, summary_text: str) -> bool:
+    recipient_masked = _mask_email(user.get("email", ""))
     if not RESEND_API_KEY:
+        _set_last_send_error(
+            provider="resend",
+            error="missing_resend_api_key",
+            message="RESEND_API_KEY is missing. Add it as a Render secret.",
+            recipient_masked=recipient_masked,
+        )
         print("  [Mailer] ERROR: RESEND_API_KEY is missing. Add it as a Render secret.")
         return False
     if not RESEND_FROM:
+        _set_last_send_error(
+            provider="resend",
+            error="missing_resend_from",
+            message="RESEND_FROM is missing. Use a verified Resend sender.",
+            recipient_masked=recipient_masked,
+        )
         print(
             "  [Mailer] ERROR: RESEND_FROM is missing. "
             'Use a verified sender such as "StitchFlow Labs <patterns@stitchflowlabs.com>".'
@@ -585,47 +634,92 @@ def _send_via_resend(user: dict, subject: str, plain: str, html: str, summary_te
         headers={
             "Authorization": f"Bearer {RESEND_API_KEY}",
             "Content-Type": "application/json",
+            "User-Agent": RESEND_USER_AGENT,
         },
         method="POST",
+    )
+    print(
+        "  [Mailer] Resend request "
+        f"recipient={recipient_masked} from={RESEND_FROM} user_agent={RESEND_USER_AGENT}"
     )
 
     try:
         with urlopen(request, timeout=RESEND_TIMEOUT_SECONDS) as response:
+            status_code = response.status
             body = response.read().decode("utf-8", errors="replace")
-        print(f"  [Mailer] Resend accepted message to {user['email']} ({summary_text})")
+        print(
+            "  [Mailer] Resend accepted message "
+            f"status={status_code} recipient={recipient_masked} ({summary_text})"
+        )
         if body:
             print("  [Mailer] Resend response received.")
         return True
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         detail = body[:500] if body else exc.reason
-        print(f"  [Mailer] ERROR: Resend rejected request ({exc.code}): {detail}")
+        friendly = None
+        if exc.code == 403 and "1010" in detail:
+            friendly = "Resend blocked the request because the HTTP User-Agent header was missing."
+        _set_last_send_error(
+            provider="resend",
+            error="resend_rejected_request",
+            status_code=exc.code,
+            message=friendly or detail,
+            resend_body=detail,
+            recipient_masked=recipient_masked,
+        )
+        print(
+            "  [Mailer] ERROR: Resend rejected request "
+            f"status={exc.code} recipient={recipient_masked}: {detail}"
+        )
+        if friendly:
+            print(f"  [Mailer] {friendly}")
         return False
     except (TimeoutError, URLError) as exc:
+        _set_last_send_error(
+            provider="resend",
+            error="resend_network_error",
+            message=f"Resend timeout/network error after {RESEND_TIMEOUT_SECONDS}s: {exc}",
+            recipient_masked=recipient_masked,
+        )
         print(
             "  [Mailer] ERROR: Resend timeout/network error "
             f"after {RESEND_TIMEOUT_SECONDS}s: {exc}"
         )
         return False
     except Exception as exc:
+        _set_last_send_error(
+            provider="resend",
+            error="resend_send_failed",
+            message=str(exc),
+            recipient_masked=recipient_masked,
+        )
         print(f"  [Mailer] ERROR: Resend send failed: {exc}")
         return False
 
 
 def send_report(user: dict, patterns: list[dict], dry_run_override: bool | None = None) -> bool:
+    _clear_last_send_error()
     effective_dry_run = EMAIL_DRY_RUN if dry_run_override is None else dry_run_override
     provider = _email_provider()
+    recipient_masked = _mask_email(user.get("email", ""))
     print(
         f"  [Mailer] transport provider={provider} dry_run={effective_dry_run} "
-        f"from={_safe_from_value()}"
+        f"from={_safe_from_value()} recipient={recipient_masked}"
     )
 
     if effective_dry_run:
-        print(f"  [Mailer] DRY RUN: would send report to {user['email']} via {provider}")
+        print(f"  [Mailer] DRY RUN: would send report to {recipient_masked} via {provider}")
         return True
 
     if not _valid_recipient(user.get("email", "")):
-        print(f"  [Mailer] ERROR: invalid recipient address: {user.get('email', '')}")
+        _set_last_send_error(
+            provider=provider,
+            error="invalid_recipient",
+            message="Invalid recipient email address.",
+            recipient_masked=recipient_masked,
+        )
+        print(f"  [Mailer] ERROR: invalid recipient address: {recipient_masked}")
         return False
 
     subject, plain, html, summary_text = _build_message_content(user, patterns)

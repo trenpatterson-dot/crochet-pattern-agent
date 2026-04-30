@@ -245,7 +245,8 @@
     Selected test status: <strong>{{ selected_test_status.state | replace('_', ' ') | title }}</strong>
     · Recipient {{ selected_test_status.email_masked or 'unknown' }}
     · Mode {{ 'Dry Run' if selected_test_status.dry_run else 'Live Selected Only' }}
-    · Provider {{ selected_test_status.provider or 'unknown' }}
+    · LLM {{ selected_test_status.provider or 'unknown' }}
+    · Email {{ selected_test_status.email_provider or 'unknown' }}
     {% if selected_test_status.started_at %}· Started {{ selected_test_status.started_at }}{% endif %}
     {% if selected_test_status.finished_at %}· Finished {{ selected_test_status.finished_at }}{% endif %}
     {% if selected_test_status.duration_seconds is not none %}· Duration {{ selected_test_status.duration_seconds }}s{% endif %}
@@ -265,6 +266,14 @@
     {% if selected_test_status.error %}
     <br>
     Detail: {{ selected_test_status.error }}
+    {% endif %}
+    {% if selected_test_status.mailer_error %}
+    <br>
+    Mailer detail:
+    {% if selected_test_status.mailer_error.status_code %}
+    Resend status {{ selected_test_status.mailer_error.status_code }} -
+    {% endif %}
+    {{ selected_test_status.mailer_error.message }}
     {% endif %}
   </div>
   {% endif %}
