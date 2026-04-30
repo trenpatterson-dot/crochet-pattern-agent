@@ -144,14 +144,12 @@ def _materials_html(materials: list, link_color: str = "#7B1FA2") -> str:
                 f"<div style='font-weight:700;color:#4A235A;'>{name}{qty_tag}</div>"
                 f"<div style='margin-top:4px;'><a href='{url}' style='color:{link_color};text-decoration:none;'>"
                 f"&#128073; {cta_label}</a></div>"
-                f"<div style='margin-top:3px;font-size:11px;color:#888;'>Price varies by retailer</div>"
                 f"</li>"
             )
         else:
             items.append(
                 f"<li style='margin:0 0 12px;'>"
                 f"<div style='font-weight:700;color:#4A235A;'>{name}{qty_tag}</div>"
-                f"<div style='margin-top:3px;font-size:11px;color:#888;'>Price varies by retailer</div>"
                 f"</li>"
             )
     return "\n".join(items)
@@ -188,6 +186,30 @@ def _instructions_html(instructions: str) -> str:
                 f"<span style='display:block;line-height:1.7;'>{stripped}</span>"
             )
     return "\n".join(lines)
+
+
+def _material_price_note(materials: list) -> str:
+    if any(m.get("material_cta_url") or m.get("affiliate_url") or m.get("store_url") for m in materials or []):
+        return (
+            "<p style='margin:0 0 14px;font-size:11px;color:#888;'>"
+            "Material links are optional shopping helpers. Prices vary by retailer."
+            "</p>"
+        )
+    return ""
+
+
+def _tutorial_guidance_html(pattern: dict) -> str:
+    guidance = pattern.get("tutorial_guidance")
+    if not guidance:
+        return ""
+    return (
+        '<table cellpadding="0" cellspacing="0" style="margin:0 0 14px;width:100%;">'
+        '<tr><td style="background:#FFF8E1;border-left:4px solid #F9A825;'
+        'padding:9px 12px;border-radius:0 6px 6px 0;">'
+        f'<p style="margin:0;font-size:12px;color:#6D4C00;line-height:1.55;">'
+        f'<strong>Tutorial search:</strong> {guidance}</p>'
+        '</td></tr></table>'
+    )
 
 
 def _found_pattern_block(p: dict, idx: int) -> str:
@@ -266,6 +288,7 @@ def _found_pattern_block(p: dict, idx: int) -> str:
       <ul style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#555;line-height:1.7;">
         {_materials_html(materials)}
       </ul>
+      {_material_price_note(materials)}
       {f'<table cellpadding="0" cellspacing="0"><tr>{pattern_td}{video_td}</tr></table>' if pattern_td or video_td else ''}
     </td></tr>
   </table>
@@ -302,7 +325,7 @@ def _original_pattern_block(p: dict, idx: int) -> str:
                  padding:10px 18px;color:#fff;">
         <span style="font-size:20px;font-weight:800;">#{idx}</span>
         <span style="font-size:12px;margin-left:8px;background:rgba(255,255,255,0.25);
-          padding:2px 10px;border-radius:12px;font-weight:700;">
+          padding:3px 10px;border-radius:12px;font-weight:700;display:inline-block;">
           Original - Made Just for You
         </span>
         <span style="float:right;background:rgba(255,255,255,0.3);color:#fff;
@@ -316,18 +339,19 @@ def _original_pattern_block(p: dict, idx: int) -> str:
       <p style="margin:0 0 12px;font-size:13px;color:#A1670A;font-style:italic;">
         {p.get("tagline","")}
       </p>
-      <p style="margin:0 0 12px;font-size:12px;color:#888;">
-        <span style="background:{skill_color};color:#fff;padding:2px 9px;
-          border-radius:12px;">{skill.capitalize()}</span>&nbsp;
-        <span style="background:#FFF3E0;color:#E65100;padding:2px 9px;
-          border-radius:12px;">{p.get("project_type","").replace("_"," ").title()}</span>&nbsp;
-        <span style="background:#FFF8E1;color:#7B5800;padding:2px 9px;
-          border-radius:12px;">Time {p.get("estimated_time","")}</span>&nbsp;
-        <span style="background:#F1F8E9;color:#33691E;padding:2px 9px;
-          border-radius:12px;">Hook {p.get("hook_size","")}</span>&nbsp;
-        <span style="background:#F3E5F5;color:#6A1B9A;padding:2px 9px;
-          border-radius:12px;">{p.get("yarn_weight","").capitalize()} weight</span>
-      </p>
+      <table cellpadding="0" cellspacing="0" style="margin:0 0 14px;width:100%;font-size:12px;color:#5F5366;">
+        <tr>
+          <td style="padding:4px 8px 4px 0;"><strong style="color:{skill_color};">Skill:</strong> {skill.capitalize()}</td>
+          <td style="padding:4px 8px;"><strong style="color:#E65100;">Project:</strong> {p.get("project_type","").replace("_"," ").title()}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 8px 4px 0;"><strong style="color:#7B5800;">Time:</strong> {p.get("estimated_time","")}</td>
+          <td style="padding:4px 8px;"><strong style="color:#33691E;">Hook:</strong> {p.get("hook_size","")}</td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:4px 8px 4px 0;"><strong style="color:#6A1B9A;">Yarn:</strong> {p.get("yarn_weight","").capitalize()} weight</td>
+        </tr>
+      </table>
       <table cellpadding="0" cellspacing="0" style="margin-bottom:14px;width:100%;">
         <tr><td style="background:#FFF8E1;border-left:4px solid #FBC02D;
                        padding:10px 14px;border-radius:0 6px 6px 0;">
@@ -347,7 +371,9 @@ def _original_pattern_block(p: dict, idx: int) -> str:
       <ul style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#555;line-height:1.7;">
         {_materials_html(materials, link_color="#A1670A")}
       </ul>
+      {_material_price_note(materials)}
       {tutorial_html}
+      {_tutorial_guidance_html(p)}
       {_abbrev_html(abbrevs)}
       <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#7B5800;">
         Pattern Instructions:
@@ -399,6 +425,31 @@ def build_html(user: dict, patterns: list[dict]) -> str:
         f"{f' and <strong>{aesthetic}</strong> aesthetic' if aesthetic else ''}"
         f"{f' with a <strong>{budget}</strong> budget' if budget else ''}."
     )
+    found_section = ""
+    if found:
+        found_section = f"""
+  <tr><td style="padding:10px 32px 10px;">
+    <p style="margin:0;font-size:11px;font-weight:800;text-transform:uppercase;
+              letter-spacing:1.2px;color:#9C27B0;">
+      Curated from trusted sites
+    </p>
+  </td></tr>
+  <table width="100%" cellpadding="0" cellspacing="0">
+    {"".join(_found_pattern_block(p, i + 1) for i, p in enumerate(found))}
+  </table>"""
+
+    original_section = ""
+    if originals:
+        original_section = f"""
+  <tr><td style="padding:{'10px' if not found else '6px'} 32px 10px;">
+    <p style="margin:0;font-size:11px;font-weight:800;text-transform:uppercase;
+              letter-spacing:1.2px;color:#F57F17;">
+      Original patterns made just for you
+    </p>
+  </td></tr>
+  <table width="100%" cellpadding="0" cellspacing="0">
+    {"".join(_original_pattern_block(p, len(found) + i + 1) for i, p in enumerate(originals))}
+  </table>"""
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -433,24 +484,8 @@ def build_html(user: dict, patterns: list[dict]) -> str:
       {intro_line}
     </p>
   </td></tr>
-  <tr><td style="padding:10px 32px 10px;">
-    <p style="margin:0;font-size:11px;font-weight:800;text-transform:uppercase;
-              letter-spacing:1.2px;color:#9C27B0;">
-      Curated from trusted sites
-    </p>
-  </td></tr>
-  <table width="100%" cellpadding="0" cellspacing="0">
-    {"".join(_found_pattern_block(p, i + 1) for i, p in enumerate(found))}
-  </table>
-  <tr><td style="padding:6px 32px 10px;">
-    <p style="margin:0;font-size:11px;font-weight:800;text-transform:uppercase;
-              letter-spacing:1.2px;color:#F57F17;">
-      Original patterns made just for you
-    </p>
-  </td></tr>
-  <table width="100%" cellpadding="0" cellspacing="0">
-    {"".join(_original_pattern_block(p, len(found) + i + 1) for i, p in enumerate(originals))}
-  </table>
+  {found_section}
+  {original_section}
   <tr><td style="padding:18px 32px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"
       style="background:#FAF6FF;border:1px solid #EADCF8;border-radius:12px;">

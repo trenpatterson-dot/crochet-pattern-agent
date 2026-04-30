@@ -7,6 +7,7 @@ color choices, and project type.
 """
 
 import os
+import re
 
 from . import llm
 
@@ -91,7 +92,10 @@ def _difficulty_label(skill: str) -> str:
 
 def _description_text(title: str, project_type: str, aesthetic: str) -> str:
     style_note = f" with a {aesthetic.lower()} feel" if aesthetic and aesthetic.lower() != "any" else ""
-    return f"A compact {project_type.replace('_', ' ')} idea{style_note} built for an approachable crochet session."
+    return (
+        f"A small, satisfying {project_type.replace('_', ' ')} project{style_note} "
+        "with enough structure to follow and enough flexibility to make it yours."
+    )
 
 
 def _materials_for(project_type: str, yarn_weight: str) -> list[dict]:
@@ -109,13 +113,94 @@ def _materials_for(project_type: str, yarn_weight: str) -> list[dict]:
 
 
 def _safe_title(project_type: str, aesthetic: str, index: int) -> str:
-    project_label = project_type.replace("_", " ").title()
-    style = aesthetic.title() if aesthetic and aesthetic.lower() != "any" else "Cozy"
-    return f"{style} {project_label} Idea {index + 1}"
+    titles_by_project = {
+        "blankets": ["Soft Weekend Lap Blanket", "Textured Sofa Throw", "Cozy Stripe Baby Blanket"],
+        "hats_scarves": ["Ribbed Morning Beanie", "Soft Loop Scarf", "Simple Trail Cowl"],
+        "amigurumi": ["Tiny Desk Frog Amigurumi", "Pocket Mushroom Friend", "Mini Sleepy Bear"],
+        "clothing": ["Easy Cotton Market Tee", "Simple Layering Vest", "Cozy Everyday Shrug"],
+        "bags": ["Easy Cotton Market Tote", "Everyday Drawstring Project Bag", "Textured Book Tote"],
+        "home_decor": ["Cozy Holiday Mug Rug Set", "Simple Basket Tray", "Soft Table Mat Duo"],
+        "baby": ["Soft Stroller Blanket", "Tiny Bootie Practice Set", "Gentle Nursery Lovey"],
+        "holiday": ["Cozy Holiday Mug Rug Set", "Simple Gift Card Sleeve", "Winter Star Garland"],
+        "accessories": ["Quick Texture Headband", "Soft Wrist Warmer Set", "Simple Button Cowl"],
+    }
+    options = titles_by_project.get(project_type, titles_by_project["accessories"])
+    return options[index % len(options)]
+
+
+def _hook_for(project_type: str) -> str:
+    if project_type == "amigurumi":
+        return "3.5mm (E/4)"
+    if project_type in {"blankets", "home_decor"}:
+        return "5.5mm (I/9)"
+    return "5mm (H/8)"
+
+
+def _finished_size_for(project_type: str) -> str:
+    sizes = {
+        "blankets": "about 32 x 40 inches",
+        "hats_scarves": "scarf about 6 x 56 inches or beanie to fit",
+        "amigurumi": "about 4-6 inches tall",
+        "clothing": "made to your measurements",
+        "bags": "about 12 x 14 inches",
+        "home_decor": "set of 4 mug rugs, about 4 x 5 inches each",
+        "baby": "about 24 x 28 inches",
+        "holiday": "4 small giftable pieces",
+        "accessories": "made to fit; measure as you go",
+    }
+    return sizes.get(project_type, "made to fit; measure as you go")
+
+
+def _fallback_instructions(project_type: str, skill: str) -> str:
+    project_label = project_type.replace("_", " ")
+    steps = [
+        f"PROJECT OVERVIEW: Make a practical {project_label} using simple rows or rounds, clean edges, and a finish that still looks polished.",
+        "1. Make a small gauge swatch first so your finished size does not surprise you.",
+        "2. Chain the width you want, or start with a magic ring if this is an amigurumi-style project.",
+        "3. Work the main body in steady rows or rounds, using stitch markers at the edges or round starts.",
+        "4. Add texture every few rows with a simple repeat such as one row of single crochet followed by one row of half double crochet.",
+        "5. Measure as you go and stop when the piece reaches the size listed for the project.",
+        "6. Add a clean border or final round in single crochet to help the edges sit neatly.",
+        "7. Fasten off, weave in ends, and block lightly if the fabric needs help relaxing.",
+    ]
+    if skill in {"intermediate", "advanced"}:
+        steps.insert(5, "5. Add one optional accent row, color stripe, or shaping detail if you want a little more interest.")
+    return "\n".join(steps[:8])
+
+
+def _fallback_notes(project_type: str, skill: str) -> list[str]:
+    notes = [
+        "Keep your first version simple; you can add color changes or texture once the base shape feels right.",
+        "Use stitch markers generously so the edges and round starts stay easy to find.",
+        "Search YouTube for the stitch names in the instructions rather than a fake exact-pattern video.",
+    ]
+    if skill in {"beginner", "intermediate"}:
+        notes.append("If the fabric curls or feels stiff, pause and check hook size, stitch count, and tension before continuing.")
+    if project_type == "amigurumi":
+        notes.append("For toys or child-facing items, embroider details instead of using loose small parts.")
+    return notes[:4]
 
 
 def _tutorial_guidance(title: str) -> str:
     return f"Search YouTube or Google for: crochet {title} tutorial"
+
+
+def _is_generic_title(title: str) -> bool:
+    normalized = title.strip().lower()
+    if re.search(r"\bidea\s+\d+\b", normalized):
+        return True
+    return normalized in {"crochet idea", "original crochet idea", "cozy crochet idea"}
+
+
+def _is_vague_instructions(instructions: str) -> bool:
+    normalized = " ".join((instructions or "").lower().split())
+    vague_markers = [
+        "start with a foundation chain, crochet the main shape, then finish edges and weave in ends",
+        "compact, usable instructions",
+    ]
+    if normalized in vague_markers:
+        return True
+    return len([line for line in (instructions or "").splitlines() if line.strip()]) < 5
 
 
 def _normalize_pattern(pattern: dict, user: dict, index: int, *, fallback_mode: bool) -> dict:
@@ -123,6 +208,8 @@ def _normalize_pattern(pattern: dict, user: dict, index: int, *, fallback_mode: 
     project_type = (pattern.get("project_type") or _default_project_type(user, index)).strip().lower()
     yarn_weight = (pattern.get("yarn_weight") or _default_yarn_weight(user)).strip().lower()
     title = (pattern.get("title") or _safe_title(project_type, user.get("aesthetic", ""), index)).strip()
+    if _is_generic_title(title):
+        title = _safe_title(project_type, user.get("aesthetic", ""), index)
     tagline = (pattern.get("tagline") or pattern.get("description") or "").strip()
     why_created = (
         pattern.get("why_created")
@@ -149,9 +236,13 @@ def _normalize_pattern(pattern: dict, user: dict, index: int, *, fallback_mode: 
         "finished_size": pattern.get("finished_size") or "Flexible based on your stitch count",
         "estimated_time": pattern.get("estimated_time") or _default_estimated_time(skill, user.get("time_commitment", "any")),
         "materials": pattern.get("materials") or _materials_for(project_type, yarn_weight),
-        "abbreviations": pattern.get("abbreviations") or {"ch": "chain", "sc": "single crochet"},
-        "instructions": pattern.get("instructions") or "Start with a foundation chain, crochet the main shape, then finish edges and weave in ends.",
-        "notes": pattern.get("notes") or ["Adjust stitch counts to fit your preferred size."],
+        "abbreviations": pattern.get("abbreviations") or {"ch": "chain", "sc": "single crochet", "hdc": "half double crochet", "sl st": "slip stitch"},
+        "instructions": (
+            _fallback_instructions(project_type, skill)
+            if _is_vague_instructions(pattern.get("instructions", ""))
+            else pattern.get("instructions")
+        ),
+        "notes": pattern.get("notes") or _fallback_notes(project_type, skill),
         "tutorial_guidance": pattern.get("tutorial_guidance") or _tutorial_guidance(title),
         "video_tutorial": None,
         "color_suggestion": pattern.get("color_suggestion") or (user.get("color_preferences") or "Soft neutral tones"),
@@ -195,16 +286,22 @@ def _deterministic_fallback_patterns(user: dict, requested_count: int) -> list[d
         title = _safe_title(project_type, aesthetic, index)
         description = _description_text(title, project_type, aesthetic)
         why = (
-            f"Designed for your {skill} skill level, {project_type.replace('_', ' ')} interest, "
-            f"and {user.get('time_commitment', 'flexible')} time preference."
+            f"Designed around your {skill} skill level and interest in "
+            f"{project_type.replace('_', ' ')} projects, with a practical shape you can finish "
+            "without chasing a long external pattern."
         )
         patterns.append(
             _normalize_pattern(
                 {
                     "title": title,
+                    "tagline": description,
                     "description": description,
                     "project_type": project_type,
                     "skill_level": skill,
+                    "hook_size": _hook_for(project_type),
+                    "finished_size": _finished_size_for(project_type),
+                    "instructions": _fallback_instructions(project_type, skill),
+                    "notes": _fallback_notes(project_type, skill),
                     "why_created": why,
                     "why_it_matches": why,
                 },
