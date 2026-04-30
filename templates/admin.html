@@ -201,10 +201,18 @@
   {% endif %}
   {% if mailer_debug %}
   <div class="alert" style="background:#E3F2FD;border-color:#90CAF9;color:#0D47A1;">
-    Mailer mode: <strong>{{ 'DRY RUN' if mailer_debug.email_dry_run else 'LIVE SEND ENABLED' }}</strong>
+    Email provider: <strong>{{ mailer_debug.email_provider | upper }}</strong>
+    · Mode <strong>{{ 'DRY RUN' if mailer_debug.email_dry_run else 'LIVE SEND ENABLED' }}</strong>
+    · Resend {{ 'configured' if mailer_debug.resend_configured else 'not configured' }}
+    · From {{ mailer_debug.safe_from }}
+    {% if mailer_debug.email_provider == 'smtp' %}
     · SMTP {{ mailer_debug.smtp_host }}:{{ mailer_debug.smtp_port }}
     · SSL {{ 'on' if mailer_debug.smtp_use_ssl else 'off' }}
+    {% endif %}
     · Due now {{ due_summary.due_count if due_summary else 0 }}
+    {% if mailer_debug.email_provider_raw != mailer_debug.email_provider %}
+    <br>EMAIL_PROVIDER={{ mailer_debug.email_provider_raw }} is not recognized, so SMTP fallback is active.
+    {% endif %}
   </div>
   {% endif %}
   {% if llm_debug %}

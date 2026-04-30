@@ -342,6 +342,7 @@ def run() -> dict:
             log(f"Batch run started - {len(users)} active subscriber(s)", f)
             log(f"started_at={started_at.isoformat(timespec='seconds')}", f)
             log(f"dry_run={dry_run}", f)
+            log(f"email_provider={mailer.transport_debug_summary().get('email_provider')}", f)
             log("=" * 55, f)
 
             try:
@@ -381,7 +382,10 @@ def run() -> dict:
                         patterns = result["patterns"]
                         ok = mailer.send_report(user, patterns)
 
-                        if ok:
+                        if ok and dry_run:
+                            skipped += 1
+                            log(f"  DRY RUN - would send report ({len(patterns)} patterns); no email sent or report saved", f)
+                        elif ok:
                             database.save_report(user["id"], result)
                             sent += 1
                             log(f"  OK - report sent and saved ({len(patterns)} patterns)", f)

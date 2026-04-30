@@ -27,10 +27,16 @@ services:
         value: "25"
       - key: SELECTED_TEST_OPENAI_TIMEOUT_SECONDS
         value: "60"
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        value: "StitchFlow Labs <patterns@stitchflowlabs.com>"
       - key: GMAIL_USER
-        sync: false
+        sync: false          # optional SMTP fallback only; Render Free blocks SMTP ports
       - key: GMAIL_APP_PASSWORD
-        sync: false
+        sync: false          # optional SMTP fallback only; Render Free blocks SMTP ports
       - key: FLASK_SECRET_KEY
         generateValue: true  # Render auto-generates a secure value
       - key: UNSUBSCRIBE_SECRET

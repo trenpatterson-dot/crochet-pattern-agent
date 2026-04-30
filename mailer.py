@@ -1,13 +1,19 @@
 """
-Gmail SMTP mailer for the personalized crochet pattern report.
+Email mailer for the personalized crochet pattern report.
+
+Supports SMTP fallback and Resend HTTPS API delivery.
 """
 
+import json
 import os
 import smtplib
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import parseaddr
 from urllib.parse import urlparse
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 import pathlib
 from dotenv import load_dotenv
@@ -15,12 +21,17 @@ from itsdangerous import URLSafeSerializer
 
 load_dotenv(pathlib.Path(__file__).parent / ".env")
 
+EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "smtp").strip().lower() or "smtp"
 GMAIL_USER = os.getenv("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 EMAIL_DRY_RUN = os.getenv("EMAIL_DRY_RUN", "false").strip().lower() == "true"
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip() or "smtp.gmail.com"
 SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "true").strip().lower() != "false"
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+RESEND_FROM = os.getenv("RESEND_FROM", "").strip()
+RESEND_API_URL = os.getenv("RESEND_API_URL", "https://api.resend.com/emails").strip()
+RESEND_TIMEOUT_SECONDS = float(os.getenv("RESEND_TIMEOUT_SECONDS", "20"))
 UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me"))
 MATERIALS_SECTION_HEADER = "\U0001F9F6 What You\u2019ll Need (Quick Buy Links)"
 
@@ -60,14 +71,34 @@ def _summary_text(found_count: int, original_count: int) -> str:
     return " + ".join(parts) if parts else "personalized picks"
 
 
+def _email_provider() -> str:
+    if EMAIL_PROVIDER in {"smtp", "resend"}:
+        return EMAIL_PROVIDER
+    return "smtp"
+
+
+def _safe_from_value() -> str:
+    if _email_provider() == "resend":
+        return RESEND_FROM or "(missing RESEND_FROM)"
+    if GMAIL_USER:
+        return f"Crochet Pattern Finder <{GMAIL_USER}>"
+    return "(missing SMTP sender)"
+
+
 def transport_debug_summary() -> dict:
     return {
+        "email_provider": _email_provider(),
+        "email_provider_raw": EMAIL_PROVIDER,
         "email_dry_run": EMAIL_DRY_RUN,
+        "safe_from": _safe_from_value(),
         "smtp_host": SMTP_HOST,
         "smtp_port": SMTP_PORT,
         "smtp_use_ssl": SMTP_USE_SSL,
         "gmail_user_configured": bool(GMAIL_USER),
         "gmail_password_configured": bool(GMAIL_APP_PASSWORD),
+        "resend_api_key_configured": bool(RESEND_API_KEY),
+        "resend_from_configured": bool(RESEND_FROM),
+        "resend_configured": bool(RESEND_API_KEY and RESEND_FROM),
     }
 
 
@@ -445,33 +476,12 @@ def build_html(user: dict, patterns: list[dict]) -> str:
     return "\n".join(normalized_lines)
 
 
-def send_report(user: dict, patterns: list[dict], dry_run_override: bool | None = None) -> bool:
-    effective_dry_run = EMAIL_DRY_RUN if dry_run_override is None else dry_run_override
-    print(
-        f"  [Mailer] transport dry_run={effective_dry_run} host={SMTP_HOST} "
-        f"port={SMTP_PORT} ssl={SMTP_USE_SSL}"
-    )
-
-    if effective_dry_run:
-        print(f"  [Mailer] DRY RUN: would send report to {user['email']}")
-        return True
-
-    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
-        print(
-            "  [Mailer] ERROR: SMTP credentials not configured "
-            f"(host={SMTP_HOST} port={SMTP_PORT} ssl={SMTP_USE_SSL})."
-        )
-        return False
-
+def _build_message_content(user: dict, patterns: list[dict]) -> tuple[str, str, str, str]:
     found = [p for p in patterns if not p.get("is_original")]
     originals = [p for p in patterns if p.get("is_original")]
     html = build_html(user, patterns)
     summary_text = _summary_text(len(found), len(originals))
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"Your Custom Crochet Picks ({summary_text})"
-    msg["From"] = f"Crochet Pattern Finder <{GMAIL_USER}>"
-    msg["To"] = user["email"]
+    subject = f"Your Custom Crochet Picks ({summary_text})"
 
     plain = [f"Hey {user['name']}!", "", "Here are your personalized crochet patterns:", ""]
     for i, p in enumerate(found, 1):
@@ -497,8 +507,37 @@ def send_report(user: dict, patterns: list[dict], dry_run_override: bool | None 
             "",
         ]
     plain.append("Happy crocheting!")
+    return subject, "\n".join(plain), html, summary_text
 
-    msg.attach(MIMEText("\n".join(plain), "plain", "utf-8"))
+
+def _valid_recipient(email: str) -> bool:
+    _, parsed = parseaddr(email or "")
+    if not parsed or parsed != (email or "").strip():
+        return False
+    local, sep, domain = parsed.rpartition("@")
+    return bool(local and sep and domain and "." in domain and " " not in parsed)
+
+
+def _send_via_smtp(
+    user: dict,
+    subject: str,
+    plain: str,
+    html: str,
+    summary_text: str,
+    effective_dry_run: bool,
+) -> bool:
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        print(
+            "  [Mailer] ERROR: SMTP credentials not configured "
+            f"(host={SMTP_HOST} port={SMTP_PORT} ssl={SMTP_USE_SSL})."
+        )
+        return False
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"Crochet Pattern Finder <{GMAIL_USER}>"
+    msg["To"] = user["email"]
+    msg.attach(MIMEText(plain, "plain", "utf-8"))
     msg.attach(MIMEText(html, "html", "utf-8"))
 
     try:
@@ -520,3 +559,77 @@ def send_report(user: dict, patterns: list[dict], dry_run_override: bool | None 
             f"(host={SMTP_HOST} port={SMTP_PORT} ssl={SMTP_USE_SSL} dry_run={effective_dry_run})"
         )
         return False
+
+
+def _send_via_resend(user: dict, subject: str, plain: str, html: str, summary_text: str) -> bool:
+    if not RESEND_API_KEY:
+        print("  [Mailer] ERROR: RESEND_API_KEY is missing. Add it as a Render secret.")
+        return False
+    if not RESEND_FROM:
+        print(
+            "  [Mailer] ERROR: RESEND_FROM is missing. "
+            'Use a verified sender such as "StitchFlow Labs <patterns@stitchflowlabs.com>".'
+        )
+        return False
+
+    payload = {
+        "from": RESEND_FROM,
+        "to": [user["email"]],
+        "subject": subject,
+        "text": plain,
+        "html": html,
+    }
+    request = Request(
+        RESEND_API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=RESEND_TIMEOUT_SECONDS) as response:
+            body = response.read().decode("utf-8", errors="replace")
+        print(f"  [Mailer] Resend accepted message to {user['email']} ({summary_text})")
+        if body:
+            print("  [Mailer] Resend response received.")
+        return True
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        detail = body[:500] if body else exc.reason
+        print(f"  [Mailer] ERROR: Resend rejected request ({exc.code}): {detail}")
+        return False
+    except (TimeoutError, URLError) as exc:
+        print(
+            "  [Mailer] ERROR: Resend timeout/network error "
+            f"after {RESEND_TIMEOUT_SECONDS}s: {exc}"
+        )
+        return False
+    except Exception as exc:
+        print(f"  [Mailer] ERROR: Resend send failed: {exc}")
+        return False
+
+
+def send_report(user: dict, patterns: list[dict], dry_run_override: bool | None = None) -> bool:
+    effective_dry_run = EMAIL_DRY_RUN if dry_run_override is None else dry_run_override
+    provider = _email_provider()
+    print(
+        f"  [Mailer] transport provider={provider} dry_run={effective_dry_run} "
+        f"from={_safe_from_value()}"
+    )
+
+    if effective_dry_run:
+        print(f"  [Mailer] DRY RUN: would send report to {user['email']} via {provider}")
+        return True
+
+    if not _valid_recipient(user.get("email", "")):
+        print(f"  [Mailer] ERROR: invalid recipient address: {user.get('email', '')}")
+        return False
+
+    subject, plain, html, summary_text = _build_message_content(user, patterns)
+    if provider == "resend":
+        return _send_via_resend(user, subject, plain, html, summary_text)
+
+    return _send_via_smtp(user, subject, plain, html, summary_text, effective_dry_run)

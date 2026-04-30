@@ -24,6 +24,41 @@ The recommendation pipeline supports multiple providers through environment vari
 
 The Render blueprint is now set up to prefer OpenAI by default.
 
+## Email Provider Selection
+
+Email delivery supports two providers:
+
+- `EMAIL_PROVIDER=smtp`
+  - keeps the existing SMTP/Gmail path available as a fallback
+  - uses `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `SMTP_HOST`, `SMTP_PORT`, and `SMTP_USE_SSL`
+  - not recommended for Render Free because outbound SMTP ports 25, 465, and 587 are blocked
+- `EMAIL_PROVIDER=resend`
+  - uses Resend over HTTPS
+  - requires `RESEND_API_KEY`
+  - requires `RESEND_FROM`, for example `StitchFlow Labs <patterns@stitchflowlabs.com>`
+
+`EMAIL_DRY_RUN=true` means the app logs that it would send the report and does not call SMTP or Resend. Dry-run output is not a real email send.
+
+### Resend Setup For Render
+
+1. Create or log in to a Resend account.
+2. Add `stitchflowlabs.com` as a sending domain in Resend.
+3. Add the Resend DNS records in Porkbun.
+4. Wait until Resend shows the domain as verified.
+5. Create a Resend API key.
+6. In Render, set these environment variables:
+
+```text
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=<your Render secret>
+RESEND_FROM=StitchFlow Labs <patterns@stitchflowlabs.com>
+EMAIL_DRY_RUN=true
+```
+
+Keep `EMAIL_DRY_RUN=true` for the first Render test. Use the admin dashboard's `Send Test (Dry Run)` button to verify report generation without sending email.
+
+When the Resend domain is verified and the dry-run looks good, switch `EMAIL_DRY_RUN=false` only for a controlled selected-subscriber live test. Use `Send Test (Selected Only)` for Stephanie's subscriber row. Do not use `Run Now (All Users)` for the first live email test.
+
 ## Competition Intelligence Agent
 
 The repo now includes a `Competition Intelligence Agent` for StitchFlow Labs. It:
