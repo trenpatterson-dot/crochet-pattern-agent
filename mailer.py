@@ -34,6 +34,9 @@ RESEND_API_URL = os.getenv("RESEND_API_URL", "https://api.resend.com/emails").st
 RESEND_TIMEOUT_SECONDS = float(os.getenv("RESEND_TIMEOUT_SECONDS", "20"))
 RESEND_USER_AGENT = os.getenv("RESEND_USER_AGENT", "crochet-pattern-agent/1.0").strip()
 UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me"))
+EMAIL_PREVIEW_PATH = pathlib.Path(
+    os.getenv("EMAIL_PREVIEW_PATH", pathlib.Path(__file__).parent / "logs" / "email_preview_latest.html")
+)
 MATERIALS_SECTION_HEADER = "\U0001F9F6 What You\u2019ll Need (Quick Buy Links)"
 _LAST_SEND_ERROR: dict | None = None
 BRAND_NAME = "StitchFlow Labs"
@@ -194,7 +197,7 @@ def _material_price_note(materials: list) -> str:
     if any(m.get("material_cta_url") or m.get("affiliate_url") or m.get("store_url") for m in materials or []):
         return (
             "<p style='margin:0 0 14px;font-size:11px;color:#888;'>"
-            "Material links are optional shopping helpers. Prices vary by retailer."
+            "Material links are optional shopping helpers. Price varies by retailer."
             "</p>"
         )
     return ""
@@ -575,6 +578,12 @@ def _build_message_content(user: dict, patterns: list[dict]) -> tuple[str, str, 
     return subject, "\n".join(plain), html, summary_text
 
 
+def _write_dry_run_preview(html: str) -> pathlib.Path:
+    EMAIL_PREVIEW_PATH.parent.mkdir(parents=True, exist_ok=True)
+    EMAIL_PREVIEW_PATH.write_text(html, encoding="utf-8")
+    return EMAIL_PREVIEW_PATH
+
+
 def _valid_recipient(email: str) -> bool:
     _, parsed = parseaddr(email or "")
     if not parsed or parsed != (email or "").strip():
@@ -748,7 +757,10 @@ def send_report(user: dict, patterns: list[dict], dry_run_override: bool | None 
     )
 
     if effective_dry_run:
+        _, _, html, _ = _build_message_content(user, patterns)
+        preview_path = _write_dry_run_preview(html)
         print(f"  [Mailer] DRY RUN: would send report to {recipient_masked} via {provider}")
+        print(f"  [Mailer] DRY RUN: preview saved to {preview_path}")
         return True
 
     if not _valid_recipient(user.get("email", "")):

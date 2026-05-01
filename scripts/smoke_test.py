@@ -18,6 +18,7 @@ def _set_env(db_path: Path) -> None:
     os.environ["FLASK_SECRET_KEY"] = "local-secret"
     os.environ["UNSUBSCRIBE_SECRET"] = "local-unsub-secret"
     os.environ["EMAIL_DRY_RUN"] = "true"
+    os.environ["EMAIL_PREVIEW_PATH"] = str(db_path.parent / "email_preview_latest.html")
     os.environ["GMAIL_USER"] = "dryrun@example.com"
     os.environ["GMAIL_APP_PASSWORD"] = "not-used"
     os.environ["AMAZON_ASSOCIATE_TAG"] = "smoketest-20"
@@ -229,19 +230,24 @@ def main() -> int:
             "original_count": 1,
         }
 
-        original_run = orchestrator.run
-        original_send = mailer.send_report
-        try:
-            orchestrator.run = lambda current_user: fake_result
-            mailer.send_report = lambda current_user, patterns: True
-            scheduler.run()
-        finally:
-            orchestrator.run = original_run
-            mailer.send_report = original_send
+        def run_scheduler_with_fake_result():
+            original_run = orchestrator.run
+            try:
+                orchestrator.run = lambda current_user: fake_result
+                return scheduler.run()
+            finally:
+                orchestrator.run = original_run
+
+        run_scheduler_with_fake_result()
 
         reports = database.get_reports_for_user(user["id"])
-        assert reports, "scheduler dry-run did not save a report"
-        assert scheduler.run()["competition_intel"]["status"] == "skipped", (
+        assert not reports, "scheduler dry-run should not save a database report"
+        preview_path = Path(os.environ["EMAIL_PREVIEW_PATH"])
+        assert preview_path.exists(), "scheduler dry-run did not save an email preview artifact"
+        assert "Smoke Test Pattern" in preview_path.read_text(encoding="utf-8"), (
+            "dry-run preview should include the generated pattern"
+        )
+        assert run_scheduler_with_fake_result()["competition_intel"]["status"] == "skipped", (
             "fresh intelligence snapshot should skip a second refresh"
         )
 
@@ -432,8 +438,9 @@ def main() -> int:
             in rendered_html
         ), "email HTML should include the affiliate disclosure"
 
-        assert scheduler.run()["sent_count"] == 0, "later scheduler run should not re-send before due date"
-        assert scheduler.run()["skipped_count"] >= 1, "later scheduler run should skip not-due subscriber"
+        later_dry_run = run_scheduler_with_fake_result()
+        assert later_dry_run["sent_count"] == 0, "scheduler dry-run should not count live sends"
+        assert later_dry_run["skipped_count"] >= 1, "scheduler dry-run should leave subscriber send history untouched"
 
         reset_due = client.post("/admin/reset-due", data={"email": user["email"]}, headers=auth)
         assert reset_due.status_code == 302, f"/admin/reset-due returned {reset_due.status_code}"
