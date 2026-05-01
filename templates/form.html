@@ -250,6 +250,44 @@
       text-align: center;
     }
 
+    .examples {
+      margin-top: 28px;
+    }
+
+    .examples h2 {
+      color: #2f2a22;
+      font-size: 22px;
+      line-height: 1.2;
+      margin-bottom: 14px;
+    }
+
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .example-card {
+      overflow: hidden;
+      border: 1px solid #f0e0ca;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .example-card img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+    }
+
+    .example-caption {
+      padding: 11px 12px 12px;
+      color: #3d372f;
+      font-size: 14px;
+      font-weight: 750;
+    }
+
     .clarity {
       margin-top: 34px;
       padding: 30px;
@@ -289,6 +327,7 @@
 
     @media (max-width: 480px) {
       .skill-group { grid-template-columns: 1fr; }
+      .example-grid { grid-template-columns: 1fr; }
       .button-link,
       .submit-btn { width: 100%; min-height: 58px; }
     }
@@ -365,6 +404,24 @@
           <button type="submit" class="submit-btn">Get My First Pattern</button>
           <p class="privacy-note">Takes 10 seconds. No spam.</p>
         </form>
+      </div>
+    </section>
+
+    <section class="examples" aria-labelledby="example-patterns">
+      <h2 id="example-patterns">Example patterns you’ll get</h2>
+      <div class="example-grid">
+        <figure class="example-card">
+          <img src="{{ url_for('static', filename='images/example-blanket-pattern.svg') }}"
+            alt="Example crochet blanket pattern with yarn and hook"
+            width="640" height="480" loading="lazy" decoding="async">
+          <figcaption class="example-caption">Cozy blanket pattern + material list</figcaption>
+        </figure>
+        <figure class="example-card">
+          <img src="{{ url_for('static', filename='images/example-amigurumi-pattern.svg') }}"
+            alt="Example amigurumi crochet pattern with yarn colors"
+            width="640" height="480" loading="lazy" decoding="async">
+          <figcaption class="example-caption">Beginner amigurumi pick + tutorial guidance</figcaption>
+        </figure>
       </div>
     </section>
 

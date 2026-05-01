@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" role="img" aria-labelledby="title desc">
+  <title id="title">Amigurumi crochet pattern example</title>
+  <desc id="desc">A styled amigurumi example with yarn colors, stitch notes, and tutorial cue.</desc>
+  <rect width="640" height="480" fill="#eef8f6"/>
+  <rect x="54" y="56" width="532" height="368" rx="18" fill="#ffffff" stroke="#cfe5df" stroke-width="3"/>
+  <ellipse cx="250" cy="276" rx="82" ry="94" fill="#f0b85f"/>
+  <circle cx="250" cy="180" r="72" fill="#f5c979"/>
+  <circle cx="196" cy="130" r="35" fill="#f5c979"/>
+  <circle cx="304" cy="130" r="35" fill="#f5c979"/>
+  <circle cx="226" cy="174" r="8" fill="#30271f"/>
+  <circle cx="274" cy="174" r="8" fill="#30271f"/>
+  <path d="M236 204c10 10 18 10 28 0" fill="none" stroke="#30271f" stroke-width="7" stroke-linecap="round"/>
+  <path d="M178 254c-44 8-64 32-58 72" fill="none" stroke="#f0b85f" stroke-width="24" stroke-linecap="round"/>
+  <path d="M322 254c44 8 64 32 58 72" fill="none" stroke="#f0b85f" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="436" cy="148" r="46" fill="#d7eee8"/>
+  <circle cx="436" cy="148" r="29" fill="none" stroke="#7ab9ad" stroke-width="10"/>
+  <circle cx="500" cy="198" r="38" fill="#f4d9d1"/>
+  <circle cx="500" cy="198" r="23" fill="none" stroke="#c98f7f" stroke-width="8"/>
+  <rect x="396" y="272" width="142" height="86" rx="10" fill="#fffaf3" stroke="#ead8bd" stroke-width="3"/>
+  <path d="M416 298h94" stroke="#176b63" stroke-width="8" stroke-linecap="round"/>
+  <path d="M416 324h70" stroke="#b89b73" stroke-width="7" stroke-linecap="round"/>
+  <path d="M416 348h92" stroke="#b89b73" stroke-width="7" stroke-linecap="round"/>
+  <path d="M156 382h208" stroke="#4c4034" stroke-width="10" stroke-linecap="round"/>
+  <path d="M184 406h150" stroke="#7b7065" stroke-width="8" stroke-linecap="round"/>
+</svg>

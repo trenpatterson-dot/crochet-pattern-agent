@@ -4,6 +4,7 @@ Batch runner for all active subscribers.
 
 import json
 import os
+import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -24,6 +25,8 @@ LOG_DIR.mkdir(exist_ok=True)
 LOCK_PATH = database.DB_PATH.parent / "scheduler.lock"
 SELECTED_TEST_STATUS_PATH = LOG_DIR / "selected_test_status.json"
 CADENCE_DAYS = 14
+FIRST_SEND_LOCK = threading.Lock()
+FIRST_SEND_IN_PROGRESS: set[str] = set()
 
 
 def log(msg: str, f=None):
@@ -250,6 +253,52 @@ def send_selected_subscriber(email: str, *, dry_run_override: bool | None = None
         "diagnostics": diagnostics,
         "mailer_error": mailer_error,
     }
+
+
+def send_first_report_if_not_sent(email: str, *, dry_run_override: bool | None = None) -> dict:
+    normalized_email = email.strip().lower()
+    effective_dry_run = mailer.EMAIL_DRY_RUN if dry_run_override is None else dry_run_override
+
+    with FIRST_SEND_LOCK:
+        if normalized_email in FIRST_SEND_IN_PROGRESS:
+            return {
+                "ok": True,
+                "status": "first_report_already_running",
+                "email": normalized_email,
+                "dry_run": effective_dry_run,
+            }
+        FIRST_SEND_IN_PROGRESS.add(normalized_email)
+
+    try:
+        database.init_db()
+        user = database.get_user_by_email(normalized_email)
+        if not user:
+            return {
+                "ok": False,
+                "status": "missing_user",
+                "email": normalized_email,
+                "dry_run": effective_dry_run,
+            }
+        if not user.get("active"):
+            return {
+                "ok": False,
+                "status": "inactive_user",
+                "email": normalized_email,
+                "dry_run": effective_dry_run,
+            }
+        if user.get("last_report_sent"):
+            return {
+                "ok": True,
+                "status": "first_report_already_sent",
+                "email": normalized_email,
+                "user_id": user["id"],
+                "dry_run": effective_dry_run,
+            }
+
+        return send_selected_subscriber(normalized_email, dry_run_override=dry_run_override)
+    finally:
+        with FIRST_SEND_LOCK:
+            FIRST_SEND_IN_PROGRESS.discard(normalized_email)
 
 
 def run_selected_subscriber_job(email: str, *, dry_run_override: bool | None = None) -> dict:

@@ -25,6 +25,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
 UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", app.secret_key)
+SEND_FIRST_EMAIL_ON_SIGNUP = os.getenv("SEND_FIRST_EMAIL_ON_SIGNUP", "true").strip().lower() != "false"
 RUN_LOCK = threading.Lock()
 INTEL_LOCK = threading.Lock()
 TEST_LOCK = threading.Lock()
@@ -179,6 +180,39 @@ def _start_selected_test_run(email: str, dry_run_override: bool) -> bool:
     return True
 
 
+def _first_signup_email_worker(email: str) -> None:
+    try:
+        result = scheduler.send_first_report_if_not_sent(email)
+        logger.info(
+            "signup first_email_finished email=%s status=%s dry_run=%s patterns=%s db_path=%s",
+            _mask_email(result.get("email", email)),
+            result.get("status"),
+            result.get("dry_run"),
+            result.get("patterns_count"),
+            database.DB_PATH,
+        )
+    except Exception:
+        logger.exception(
+            "signup first_email_failed email=%s db_path=%s",
+            _mask_email(email),
+            database.DB_PATH,
+        )
+
+
+def _start_first_signup_email(email: str) -> bool:
+    if not SEND_FIRST_EMAIL_ON_SIGNUP:
+        logger.info("signup first_email_disabled email=%s", _mask_email(email))
+        return False
+
+    worker = threading.Thread(
+        target=_first_signup_email_worker,
+        args=(email,),
+        daemon=True,
+    )
+    worker.start()
+    return True
+
+
 def _load_unsubscribe_email(token: str) -> str | None:
     if not token:
         return None
@@ -267,6 +301,7 @@ def subscribe():
     )
     session["subscription_success_name"] = name
     session["subscription_success_user_id"] = save_result.get("user_id")
+    _start_first_signup_email(email)
     return redirect(url_for("success"), code=303)
 
 

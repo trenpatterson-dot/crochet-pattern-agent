@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" role="img" aria-labelledby="title desc">
+  <title id="title">Crochet blanket pattern example</title>
+  <desc id="desc">A styled crochet blanket example with yarn, hook, and a simple pattern card.</desc>
+  <rect width="640" height="480" fill="#f6efe5"/>
+  <rect x="54" y="56" width="532" height="368" rx="18" fill="#fffaf3" stroke="#ead8bd" stroke-width="3"/>
+  <rect x="92" y="96" width="276" height="236" rx="14" fill="#d7eee8"/>
+  <path d="M92 124h276M92 164h276M92 204h276M92 244h276M92 284h276M132 96v236M172 96v236M212 96v236M252 96v236M292 96v236M332 96v236" stroke="#6bb4a6" stroke-width="7" stroke-linecap="round" opacity=".8"/>
+  <path d="M115 120c18 14 24 14 42 0s24-14 42 0 24 14 42 0 24-14 42 0 24 14 42 0" fill="none" stroke="#fffaf3" stroke-width="8" stroke-linecap="round"/>
+  <path d="M115 202c18 14 24 14 42 0s24-14 42 0 24 14 42 0 24-14 42 0 24 14 42 0" fill="none" stroke="#fffaf3" stroke-width="8" stroke-linecap="round"/>
+  <path d="M115 284c18 14 24 14 42 0s24-14 42 0 24 14 42 0 24-14 42 0 24 14 42 0" fill="none" stroke="#fffaf3" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="455" cy="148" r="52" fill="#f0b85f"/>
+  <circle cx="455" cy="148" r="34" fill="none" stroke="#c7852f" stroke-width="11"/>
+  <circle cx="498" cy="190" r="42" fill="#176b63"/>
+  <circle cx="498" cy="190" r="26" fill="none" stroke="#0f4d46" stroke-width="9"/>
+  <path d="M404 298c38-45 94-68 150-66" fill="none" stroke="#4c4034" stroke-width="9" stroke-linecap="round"/>
+  <path d="M544 214l36 36" stroke="#4c4034" stroke-width="9" stroke-linecap="round"/>
+  <rect x="402" y="316" width="132" height="42" rx="8" fill="#fff" stroke="#ead8bd" stroke-width="3"/>
+  <path d="M422 337h82" stroke="#176b63" stroke-width="8" stroke-linecap="round"/>
+  <path d="M92 370h190" stroke="#4c4034" stroke-width="10" stroke-linecap="round"/>
+  <path d="M92 394h136" stroke="#b89b73" stroke-width="8" stroke-linecap="round"/>
+</svg>
