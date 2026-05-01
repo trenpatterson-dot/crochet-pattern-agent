@@ -19,6 +19,7 @@ def _set_env(db_path: Path) -> None:
     os.environ["UNSUBSCRIBE_SECRET"] = "local-unsub-secret"
     os.environ["EMAIL_DRY_RUN"] = "true"
     os.environ["EMAIL_PREVIEW_PATH"] = str(db_path.parent / "email_preview_latest.html")
+    os.environ["SEND_FIRST_EMAIL_ON_SIGNUP"] = "false"
     os.environ["GMAIL_USER"] = "dryrun@example.com"
     os.environ["GMAIL_APP_PASSWORD"] = "not-used"
     os.environ["AMAZON_ASSOCIATE_TAG"] = "smoketest-20"
@@ -406,6 +407,10 @@ def main() -> int:
         assert "~$" not in rendered_html, "email HTML should not contain approximate pricing"
         assert "$4.99" not in rendered_html, "email HTML should not contain fake pricing"
         assert "Price varies by retailer" in rendered_html, "email HTML should show retailer-safe pricing text"
+        assert "Start Here" in rendered_html, "email HTML should include quick-start guidance"
+        assert "Gather the listed yarn, hook, and basic tools." in rendered_html, (
+            "quick-start guidance should be beginner-friendly and actionable"
+        )
         assert "Search Tutorial" not in rendered_html, "email HTML should not show tutorial fallback CTA"
         assert "Tutorial</a>" not in rendered_html, "email HTML should not show tutorial CTA when link is invalid"
         search_fallback_html = mailer.build_html(
@@ -427,8 +432,11 @@ def main() -> int:
                 }
             ],
         )
-        assert "Search Pattern</a>" in search_fallback_html, "email HTML should render Search Pattern fallback CTA"
-        assert "View Pattern</a>" not in search_fallback_html, "fallback cards should not render View Pattern CTA"
+        assert "View Full Pattern</a>" in search_fallback_html, "email HTML should render the primary pattern CTA"
+        assert "Start Here" in search_fallback_html, "fallback cards should include quick-start guidance"
+        assert "https://www.google.com/search?q=fallback" in search_fallback_html, (
+            "fallback cards should link the primary CTA to the safe pattern search URL"
+        )
         assert "What You" in rendered_html and "Quick Buy Links" in rendered_html, (
             "email HTML should use updated materials header"
         )
@@ -441,6 +449,45 @@ def main() -> int:
         later_dry_run = run_scheduler_with_fake_result()
         assert later_dry_run["sent_count"] == 0, "scheduler dry-run should not count live sends"
         assert later_dry_run["skipped_count"] >= 1, "scheduler dry-run should leave subscriber send history untouched"
+
+        first_send_result = database.upsert_user(
+            name="First Send Tester",
+            email="first@example.com",
+            skill_level="beginner",
+            project_types=["blankets"],
+            yarn_weights=["cotton"],
+            time_commitment="quick",
+            color_preferences="green",
+            aesthetic="Cozy",
+            budget="$10-$25",
+            free_only=True,
+            wants_video=True,
+            wants_printable=False,
+            special_interests="",
+        )
+        original_run = orchestrator.run
+        original_send = mailer.send_report
+        try:
+            orchestrator.run = lambda current_user: fake_result
+            mailer.send_report = lambda current_user, patterns, dry_run_override=None: True
+            first_send = scheduler.send_first_report_if_not_sent(
+                "first@example.com",
+                dry_run_override=False,
+            )
+            second_send = scheduler.send_first_report_if_not_sent(
+                "first@example.com",
+                dry_run_override=False,
+            )
+        finally:
+            orchestrator.run = original_run
+            mailer.send_report = original_send
+
+        assert first_send["status"] == "sent", "first signup send should send immediately"
+        assert second_send["status"] == "first_report_already_sent", (
+            "first signup send should not duplicate after last_report_sent is set"
+        )
+        first_send_reports = database.get_reports_for_user(first_send_result["user_id"])
+        assert len(first_send_reports) == 1, "first signup send should save exactly one live report"
 
         reset_due = client.post("/admin/reset-due", data={"email": user["email"]}, headers=auth)
         assert reset_due.status_code == 302, f"/admin/reset-due returned {reset_due.status_code}"
@@ -457,7 +504,9 @@ def main() -> int:
 
         unsub = client.get(f"/unsubscribe?token={token}")
         assert unsub.status_code == 200, f"/unsubscribe returned {unsub.status_code}"
-        assert len(database.get_active_users()) == 0, "unsubscribe did not deactivate the user"
+        assert not database.get_user_by_email(user["email"])["active"], (
+            "unsubscribe did not deactivate the target user"
+        )
 
         print("Smoke test passed.")
         return 0

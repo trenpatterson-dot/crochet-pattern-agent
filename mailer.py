@@ -217,6 +217,41 @@ def _tutorial_guidance_html(pattern: dict) -> str:
     )
 
 
+def _email_button(label: str, url: str, *, bg: str, margin: str = "0 0 8px") -> str:
+    if not label or not url:
+        return ""
+    return (
+        f'<table width="100%" cellpadding="0" cellspacing="0" style="margin:{margin};">'
+        f'<tr><td><a href="{url}" style="display:block;padding:12px 16px;'
+        f'background:{bg};color:#fff;text-decoration:none;border-radius:7px;'
+        f'font-size:14px;font-weight:800;text-align:center;">{label}</a></td></tr>'
+        f'</table>'
+    )
+
+
+def _quick_start_html(pattern: dict, action_text: str) -> str:
+    has_tutorial = bool((pattern.get("video_tutorial") or {}).get("url"))
+    steps = [
+        action_text,
+        "Gather the listed yarn, hook, and basic tools.",
+        "Read the first few steps before you begin.",
+    ]
+    if has_tutorial:
+        steps.append("Watch the tutorial if you want to see the motion first.")
+    else:
+        steps.append("Start slowly and check your work every few rows.")
+
+    items = "".join(f"<li style='margin:0 0 4px;'>{step}</li>" for step in steps[:5])
+    return (
+        '<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px;">'
+        '<tr><td style="background:#F7FBFA;border:1px solid #D9ECE7;'
+        'border-radius:8px;padding:11px 13px;">'
+        '<p style="margin:0 0 6px;font-size:13px;font-weight:800;color:#176B63;">Start Here</p>'
+        f'<ol style="margin:0;padding-left:18px;font-size:13px;color:#3D372F;line-height:1.55;">{items}</ol>'
+        '</td></tr></table>'
+    )
+
+
 def _found_pattern_block(p: dict, idx: int) -> str:
     skill = p.get("skill_level", "")
     skill_color = SKILL_COLORS.get(skill, "#888")
@@ -227,25 +262,18 @@ def _found_pattern_block(p: dict, idx: int) -> str:
     free_bg = "#E8F5E9" if p.get("is_free") else "#FFF3E0"
     free_color = "#2E7D32" if p.get("is_free") else "#E65100"
 
-    video_td = ""
+    video_button = ""
     if video.get("url"):
-        button_text = video.get("button_text") or "Tutorial"
-        video_td = (
-            f'<td><a href="{video["url"]}" style="display:inline-block;padding:7px 16px;'
-            f'background:#FF0000;color:#fff;text-decoration:none;border-radius:5px;'
-            f'font-size:13px;font-weight:600;">{button_text}</a></td>'
+        video_button = _email_button(
+            "Watch Tutorial",
+            video["url"],
+            bg="#D84315",
+            margin="0 0 14px",
         )
 
     pattern_cta_url = p.get("pattern_cta_url") or p.get("url") or ""
-    pattern_cta_label = p.get("pattern_cta_label") or ("View Pattern" if pattern_cta_url else "")
-    pattern_td = ""
-    if pattern_cta_url and pattern_cta_label:
-        pattern_bg = "#7B1FA2" if pattern_cta_label == "View Pattern" else "#546E7A"
-        pattern_td = (
-            f'<td><a href="{pattern_cta_url}" style="display:inline-block;padding:7px 16px;'
-            f'background:{pattern_bg};color:#fff;text-decoration:none;border-radius:5px;'
-            f'font-size:13px;font-weight:600;margin-right:8px;">{pattern_cta_label}</a></td>'
-        )
+    pattern_button = _email_button("View Full Pattern", pattern_cta_url, bg="#6A1B9A")
+    quick_start = _quick_start_html(p, "Open the full pattern page.")
 
     return f"""
 <tr><td style="padding:0 32px 24px;">
@@ -268,6 +296,9 @@ def _found_pattern_block(p: dict, idx: int) -> str:
         <a href="{p.get('url','#')}" style="color:#6A1B9A;text-decoration:none;">
           {p.get("title","")}</a>
       </h3>
+      {pattern_button}
+      {quick_start}
+      {video_button}
       {f'<p style="margin:0 0 12px;font-size:13px;color:#666;line-height:1.7;">{description}</p>' if description else ''}
       <p style="margin:0 0 12px;font-size:12px;color:#888;">
         <span style="background:{skill_color};color:#fff;padding:2px 9px;
@@ -294,7 +325,6 @@ def _found_pattern_block(p: dict, idx: int) -> str:
         {_materials_html(materials)}
       </ul>
       {_material_price_note(materials)}
-      {f'<table cellpadding="0" cellspacing="0"><tr>{pattern_td}{video_td}</tr></table>' if pattern_td or video_td else ''}
     </td></tr>
   </table>
 </td></tr>"""
@@ -311,14 +341,20 @@ def _original_pattern_block(p: dict, idx: int) -> str:
     video = p.get("video_tutorial") or {}
     tutorial_html = ""
     if video.get("url"):
-        tutorial_text = video.get("button_text") or "Tutorial"
-        tutorial_html = (
-            f'<table cellpadding="0" cellspacing="0" style="margin:0 0 14px;"><tr>'
-            f'<td><a href="{video["url"]}" style="display:inline-block;padding:7px 16px;'
-            f'background:#FF8F00;color:#fff;text-decoration:none;border-radius:5px;'
-            f'font-size:13px;font-weight:600;">{tutorial_text}</a></td>'
-            f'</tr></table>'
+        tutorial_html = _email_button(
+            "Watch Tutorial",
+            video["url"],
+            bg="#D84315",
+            margin="0 0 14px",
         )
+    instructions_anchor = f"pattern-{idx}-instructions"
+    pattern_button = _email_button(
+        "View Full Pattern",
+        f"#{instructions_anchor}",
+        bg="#F57F17",
+        margin="0 0 8px",
+    )
+    quick_start = _quick_start_html(p, "Jump to the full instructions below.")
 
     return f"""
 <tr><td style="padding:0 32px 24px;">
@@ -344,6 +380,10 @@ def _original_pattern_block(p: dict, idx: int) -> str:
       <p style="margin:0 0 12px;font-size:13px;color:#A1670A;font-style:italic;">
         {p.get("tagline","")}
       </p>
+      {pattern_button}
+      {quick_start}
+      {tutorial_html}
+      {_tutorial_guidance_html(p)}
       <table cellpadding="0" cellspacing="0" style="margin:0 0 14px;width:100%;font-size:12px;color:#5F5366;">
         <tr>
           <td style="padding:4px 8px 4px 0;"><strong style="color:{skill_color};">Skill:</strong> {skill.capitalize()}</td>
@@ -377,10 +417,8 @@ def _original_pattern_block(p: dict, idx: int) -> str:
         {_materials_html(materials, link_color="#A1670A")}
       </ul>
       {_material_price_note(materials)}
-      {tutorial_html}
-      {_tutorial_guidance_html(p)}
       {_abbrev_html(abbrevs)}
-      <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#7B5800;">
+      <p id="{instructions_anchor}" style="margin:0 0 8px;font-size:13px;font-weight:700;color:#7B5800;">
         Pattern Instructions:
       </p>
       <div style="background:#FFF9C4;border:1px solid #FDD835;border-radius:8px;
