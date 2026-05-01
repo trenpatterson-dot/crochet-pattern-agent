@@ -68,6 +68,13 @@
       margin-top: 28px;
     }
 
+    .trust-line {
+      margin-top: 12px;
+      color: #6b6258;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
     .button-link,
     .submit-btn {
       min-height: 54px;
@@ -297,8 +304,9 @@
 
         <div class="hero-actions">
           <a class="button-link" href="#signup">Get My First Pattern</a>
-          <a class="button-link secondary" href="#signup">See My Recommendations</a>
+          <a class="button-link secondary" href="#signup">See What You'll Get</a>
         </div>
+        <p class="trust-line">Used by crochet beginners to find patterns faster</p>
 
         <ul class="value-list" aria-label="Why sign up">
           <li><span class="check">✓</span><span>No more searching for hours</span></li>
@@ -308,7 +316,7 @@
       </div>
 
       <div class="signup-card" id="signup">
-        <h2>Get your first pattern picks</h2>
+        <h2>Start your first picks</h2>
         <p class="form-note">Three quick details. No long quiz.</p>
 
         {% if error %}
@@ -355,7 +363,7 @@
           </div>
 
           <button type="submit" class="submit-btn">Get My First Pattern</button>
-          <p class="privacy-note">Curated patterns, materials, and tutorials. No spam.</p>
+          <p class="privacy-note">Takes 10 seconds. No spam.</p>
         </form>
       </div>
     </section>
