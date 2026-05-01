@@ -408,9 +408,13 @@ def main() -> int:
         assert "$4.99" not in rendered_html, "email HTML should not contain fake pricing"
         assert "Price varies by retailer" in rendered_html, "email HTML should show retailer-safe pricing text"
         assert "Start Here" in rendered_html, "email HTML should include quick-start guidance"
-        assert "Gather the listed yarn, hook, and basic tools." in rendered_html, (
-            "quick-start guidance should be beginner-friendly and actionable"
+        assert "How to Make It" in rendered_html, "email HTML should include guided tutorial steps"
+        assert "What to Watch For" in rendered_html, "email HTML should include beginner tips"
+        assert "If You Get Stuck" in rendered_html, "email HTML should include a recovery line"
+        assert "Materials: yarn, hook, and basic tools from the list below." in rendered_html, (
+            "guided tutorial should summarize materials in beginner-friendly language"
         )
+        assert "Skill: Beginner blankets." in rendered_html, "guided tutorial should summarize skill level"
         assert "Search Tutorial" not in rendered_html, "email HTML should not show tutorial fallback CTA"
         assert "Tutorial</a>" not in rendered_html, "email HTML should not show tutorial CTA when link is invalid"
         search_fallback_html = mailer.build_html(
@@ -434,6 +438,7 @@ def main() -> int:
         )
         assert "View Full Pattern</a>" in search_fallback_html, "email HTML should render the primary pattern CTA"
         assert "Start Here" in search_fallback_html, "fallback cards should include quick-start guidance"
+        assert "How to Make It" in search_fallback_html, "fallback cards should include guided tutorial steps"
         assert "https://www.google.com/search?q=fallback" in search_fallback_html, (
             "fallback cards should link the primary CTA to the safe pattern search URL"
         )

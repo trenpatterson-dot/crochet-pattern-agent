@@ -229,25 +229,51 @@ def _email_button(label: str, url: str, *, bg: str, margin: str = "0 0 8px") -> 
     )
 
 
-def _quick_start_html(pattern: dict, action_text: str) -> str:
+def _compact_value(value: str, fallback: str) -> str:
+    cleaned = (value or "").strip()
+    return cleaned if cleaned else fallback
+
+
+def _guided_tutorial_html(pattern: dict, action_text: str) -> str:
+    skill = _compact_value(pattern.get("skill_level", ""), "beginner").capitalize()
+    project = _compact_value(pattern.get("project_type", ""), "project").replace("_", " ").title()
+    time_needed = _compact_value(pattern.get("estimated_time", ""), "a short session")
     has_tutorial = bool((pattern.get("video_tutorial") or {}).get("url"))
-    steps = [
+    start_items = [
+        f"Materials: yarn, hook, and basic tools from the list below.",
+        f"Time: {time_needed}.",
+        f"Skill: {skill} {project.lower()}.",
+    ]
+    make_steps = [
         action_text,
-        "Gather the listed yarn, hook, and basic tools.",
-        "Read the first few steps before you begin.",
+        "Set out your yarn, hook, scissors, and needle.",
+        "Read the first step before you start stitching.",
+        "Make the first small section and check the size.",
+        "Keep going in short sections so mistakes are easier to fix.",
     ]
     if has_tutorial:
-        steps.append("Watch the tutorial if you want to see the motion first.")
-    else:
-        steps.append("Start slowly and check your work every few rows.")
+        make_steps.append("Use the video if a step feels unclear.")
 
-    items = "".join(f"<li style='margin:0 0 4px;'>{step}</li>" for step in steps[:5])
+    watch_tips = [
+        "Keep your loops relaxed, not tight.",
+        "Count often so the edges stay even.",
+        "Pause if the shape starts looking different from the pattern.",
+    ]
+    stuck_line = "If you get stuck, reread the last step, undo a small section, and try again slowly."
+    start_html = "".join(f"<li style='margin:0 0 4px;'>{item}</li>" for item in start_items)
+    make_html = "".join(f"<li style='margin:0 0 4px;'>{step}</li>" for step in make_steps[:6])
+    tips_html = "".join(f"<li style='margin:0 0 4px;'>{tip}</li>" for tip in watch_tips)
     return (
         '<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px;">'
         '<tr><td style="background:#F7FBFA;border:1px solid #D9ECE7;'
         'border-radius:8px;padding:11px 13px;">'
         '<p style="margin:0 0 6px;font-size:13px;font-weight:800;color:#176B63;">Start Here</p>'
-        f'<ol style="margin:0;padding-left:18px;font-size:13px;color:#3D372F;line-height:1.55;">{items}</ol>'
+        f'<ul style="margin:0 0 10px;padding-left:18px;font-size:13px;color:#3D372F;line-height:1.55;">{start_html}</ul>'
+        '<p style="margin:0 0 6px;font-size:13px;font-weight:800;color:#176B63;">How to Make It</p>'
+        f'<ol style="margin:0 0 10px;padding-left:18px;font-size:13px;color:#3D372F;line-height:1.55;">{make_html}</ol>'
+        '<p style="margin:0 0 6px;font-size:13px;font-weight:800;color:#176B63;">What to Watch For</p>'
+        f'<ul style="margin:0 0 10px;padding-left:18px;font-size:13px;color:#3D372F;line-height:1.55;">{tips_html}</ul>'
+        f'<p style="margin:0;font-size:13px;color:#3D372F;line-height:1.55;"><strong>If You Get Stuck:</strong> {stuck_line}</p>'
         '</td></tr></table>'
     )
 
@@ -273,7 +299,7 @@ def _found_pattern_block(p: dict, idx: int) -> str:
 
     pattern_cta_url = p.get("pattern_cta_url") or p.get("url") or ""
     pattern_button = _email_button("View Full Pattern", pattern_cta_url, bg="#6A1B9A")
-    quick_start = _quick_start_html(p, "Open the full pattern page.")
+    guided_tutorial = _guided_tutorial_html(p, "Open the full pattern page.")
 
     return f"""
 <tr><td style="padding:0 32px 24px;">
@@ -296,8 +322,8 @@ def _found_pattern_block(p: dict, idx: int) -> str:
         <a href="{p.get('url','#')}" style="color:#6A1B9A;text-decoration:none;">
           {p.get("title","")}</a>
       </h3>
+      {guided_tutorial}
       {pattern_button}
-      {quick_start}
       {video_button}
       {f'<p style="margin:0 0 12px;font-size:13px;color:#666;line-height:1.7;">{description}</p>' if description else ''}
       <p style="margin:0 0 12px;font-size:12px;color:#888;">
@@ -354,7 +380,7 @@ def _original_pattern_block(p: dict, idx: int) -> str:
         bg="#F57F17",
         margin="0 0 8px",
     )
-    quick_start = _quick_start_html(p, "Jump to the full instructions below.")
+    guided_tutorial = _guided_tutorial_html(p, "Jump to the full instructions below.")
 
     return f"""
 <tr><td style="padding:0 32px 24px;">
@@ -380,8 +406,8 @@ def _original_pattern_block(p: dict, idx: int) -> str:
       <p style="margin:0 0 12px;font-size:13px;color:#A1670A;font-style:italic;">
         {p.get("tagline","")}
       </p>
+      {guided_tutorial}
       {pattern_button}
-      {quick_start}
       {tutorial_html}
       {_tutorial_guidance_html(p)}
       <table cellpadding="0" cellspacing="0" style="margin:0 0 14px;width:100%;font-size:12px;color:#5F5366;">
