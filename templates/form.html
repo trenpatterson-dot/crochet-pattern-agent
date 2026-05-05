@@ -24,12 +24,16 @@
     .hero {
       display: grid;
       grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+      grid-template-areas:
+        "copy signup"
+        "visual signup";
       gap: 28px;
-      align-items: center;
+      align-items: start;
       min-height: calc(100vh - 80px);
     }
 
     .hero-copy {
+      grid-area: copy;
       padding: 18px 0;
     }
 
@@ -150,8 +154,9 @@
     }
 
     .hero-visual {
+      grid-area: visual;
       width: min(420px, 100%);
-      margin-top: 28px;
+      margin-top: -8px;
       overflow: hidden;
       border: 1px solid #f0e0ca;
       border-radius: 8px;
@@ -174,11 +179,20 @@
     }
 
     .signup-card {
+      grid-area: signup;
       background: #ffffff;
       border: 1px solid #f0e0ca;
       border-radius: 8px;
       box-shadow: 0 24px 50px rgba(68, 52, 30, 0.14);
       padding: 28px;
+    }
+
+    .form-intro {
+      display: inline-flex;
+      margin-bottom: 10px;
+      color: #176b63;
+      font-size: 15px;
+      font-weight: 800;
     }
 
     .signup-card h2 {
@@ -320,6 +334,39 @@
       font-weight: 750;
     }
 
+    .example-labels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 12px 12px 0;
+    }
+
+    .example-label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #f3efe7;
+      color: #75613f;
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .proof-line {
+      margin-top: 22px;
+      padding: 14px 18px;
+      border: 1px solid #ead9c2;
+      border-radius: 8px;
+      background: #fffdf9;
+      color: #5d5449;
+      font-size: 15px;
+      font-weight: 750;
+      text-align: center;
+    }
+
     .outcome-preview {
       margin-top: 28px;
       padding: 30px;
@@ -389,18 +436,33 @@
       .page { padding: 16px 14px 36px; }
       .hero {
         grid-template-columns: 1fr;
+        grid-template-areas:
+          "copy"
+          "signup"
+          "visual";
         gap: 18px;
         align-items: start;
         min-height: auto;
       }
       .hero-copy { padding-top: 8px; }
-      h1 { font-size: clamp(38px, 12vw, 56px); }
-      .subtext { font-size: 19px; }
-      .hero-actions { margin-top: 22px; }
+      .eyebrow { margin-bottom: 12px; }
+      h1 { font-size: clamp(32px, 10vw, 46px); line-height: 1; }
+      .subtext { margin-top: 14px; font-size: 18px; }
+      .hero-actions { margin-top: 18px; }
+      .kit-note { margin-top: 12px; font-size: 15px; }
       .button-link { width: 100%; }
       .signup-card { padding: 22px 18px; }
-      .value-list { margin-top: 26px; }
-      .hero-visual { margin-top: 22px; }
+      .value-list {
+        margin-top: 18px;
+        gap: 8px;
+      }
+      .value-list li { font-size: 15px; }
+      .hero-visual {
+        width: min(280px, 100%);
+        margin: 0 auto;
+      }
+      .hero-visual img { aspect-ratio: 16 / 9; }
+      .hero-visual figcaption { padding: 9px 11px 10px; font-size: 13px; }
       .outcome-preview { padding: 24px 18px; }
       .outcome-grid { grid-template-columns: 1fr; }
       .clarity { padding: 24px 18px; }
@@ -409,6 +471,7 @@
     @media (max-width: 480px) {
       .skill-group { grid-template-columns: 1fr; }
       .example-grid { grid-template-columns: 1fr; }
+      .page { padding-top: 12px; }
       .button-link,
       .submit-btn { width: 100%; min-height: 58px; }
     }
@@ -434,16 +497,10 @@
           <li><span class="check">✓</span><span>Beginner-friendly ideas when you want an easy start</span></li>
           <li><span class="check">✓</span><span>Materials + guidance included</span></li>
         </ul>
-
-        <figure class="hero-visual">
-          <img src="{{ url_for('static', filename='images/example-blanket-pattern.svg') }}"
-            alt="Warm crochet blanket pattern preview with yarn and hook"
-            width="640" height="480" decoding="async">
-          <figcaption>Pick the vibe. Get a pattern path that is easier to start.</figcaption>
-        </figure>
       </div>
 
       <div class="signup-card" id="signup">
+        <p class="form-intro">Get your first personalized picks 👇</p>
         <h2>Get your first pattern picks</h2>
         <p class="form-note">Three quick details. Patterns, materials, and tutorial guidance by email.</p>
 
@@ -494,7 +551,16 @@
           <p class="privacy-note">Takes 10 seconds. No spam.</p>
         </form>
       </div>
+
+      <figure class="hero-visual">
+        <img src="{{ url_for('static', filename='images/example-blanket-pattern.svg') }}"
+          alt="Warm crochet blanket pattern preview with yarn and hook"
+          width="640" height="480" decoding="async">
+        <figcaption>Pick the vibe. Get a pattern path that is easier to start.</figcaption>
+      </figure>
     </section>
+
+    <p class="proof-line">Built using real crochet feedback.</p>
 
     <section class="outcome-preview" id="what-you-get" aria-labelledby="what-you-get-title">
       <h2 id="what-you-get-title">What you’ll get</h2>
@@ -521,12 +587,20 @@
           <img src="{{ url_for('static', filename='images/example-blanket-pattern.svg') }}"
             alt="Beginner-friendly crochet blanket idea with yarn and hook"
             width="640" height="480" loading="lazy" decoding="async">
+          <div class="example-labels" aria-label="Pattern details">
+            <span class="example-label">Beginner</span>
+            <span class="example-label">2–3 hours</span>
+          </div>
           <figcaption class="example-caption">Beginner-friendly ideas</figcaption>
         </figure>
         <figure class="example-card">
           <img src="{{ url_for('static', filename='images/example-amigurumi-pattern.svg') }}"
             alt="Crochet amigurumi pattern style with yarn colors and tutorial guidance"
             width="640" height="480" loading="lazy" decoding="async">
+          <div class="example-labels" aria-label="Pattern details">
+            <span class="example-label">Beginner</span>
+            <span class="example-label">2–3 hours</span>
+          </div>
           <figcaption class="example-caption">Materials + guidance included</figcaption>
         </figure>
       </div>
