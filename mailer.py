@@ -573,6 +573,32 @@ def build_html(user: dict, patterns: list[dict]) -> str:
       </td></tr>
     </table>
   </td></tr>
+  <tr><td style="padding:0 32px 26px;">
+    <table width="100%" cellpadding="0" cellspacing="0"
+      style="background:#FFFDF5;border:1px solid #F4D48A;border-radius:12px;">
+      <tr><td style="padding:16px 18px;">
+        <p style="margin:0 0 8px;font-size:16px;font-weight:800;color:#7B5800;">
+          Help improve future pattern picks 💛
+        </p>
+        <p style="margin:0 0 8px;font-size:13px;line-height:1.7;color:#5D4037;">
+          Reply to this email anytime with:
+        </p>
+        <ul style="margin:0 0 10px;padding-left:20px;font-size:13px;line-height:1.7;color:#5D4037;">
+          <li>what confused you</li>
+          <li>patterns you want more of</li>
+          <li>screenshots of projects</li>
+          <li>tutorial requests</li>
+          <li>ideas that would make this easier</li>
+        </ul>
+        <p style="margin:0 0 6px;font-size:13px;font-weight:800;color:#7B5800;">
+          Just hit reply — no forms needed.
+        </p>
+        <p style="margin:0;font-size:13px;line-height:1.7;color:#5D4037;">
+          Real feedback directly shapes what gets added next.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
   <tr><td style="padding:0 32px 28px;">
     <p style="margin:0;font-size:15px;color:#4A235A;font-weight:600;">
       Happy crocheting!

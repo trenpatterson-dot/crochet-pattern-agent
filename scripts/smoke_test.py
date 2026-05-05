@@ -413,6 +413,11 @@ def main() -> int:
         assert "How to Make It" in rendered_html, "email HTML should include guided tutorial steps"
         assert "What to Watch For" in rendered_html, "email HTML should include beginner tips"
         assert "If You Get Stuck" in rendered_html, "email HTML should include a recovery line"
+        assert "Help improve future pattern picks" in rendered_html, "email HTML should include feedback prompt"
+        assert "Just hit reply" in rendered_html, "feedback prompt should encourage direct replies"
+        assert "Real feedback directly shapes what gets added next." in rendered_html, (
+            "feedback prompt should explain why replies matter"
+        )
         assert "Materials: yarn, hook, and basic tools from the list below." in rendered_html, (
             "guided tutorial should summarize materials in beginner-friendly language"
         )
