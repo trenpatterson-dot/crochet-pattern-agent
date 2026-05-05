@@ -273,6 +273,7 @@ def subscribe():
             wants_video="wants_video" in request.form,
             wants_printable="wants_printable" in request.form,
             special_interests=request.form.get("special_interests", "").strip(),
+            email_frequency=request.form.get("email_frequency", "every_2_weeks"),
         )
     except Exception:
         logger.exception(

@@ -231,6 +231,7 @@
       font-weight: 800;
     }
 
+    input[type="text"],
     input[type="email"],
     select {
       width: 100%;
@@ -245,6 +246,7 @@
       transition: border-color 0.2s, box-shadow 0.2s;
     }
 
+    input[type="text"]:focus,
     input[type="email"]:focus,
     select:focus {
       outline: none;
@@ -463,6 +465,9 @@
       }
       .hero-visual img { aspect-ratio: 16 / 9; }
       .hero-visual figcaption { padding: 9px 11px 10px; font-size: 13px; }
+      .examples,
+      .outcome-preview,
+      .clarity { margin-top: 22px; }
       .outcome-preview { padding: 24px 18px; }
       .outcome-grid { grid-template-columns: 1fr; }
       .clarity { padding: 24px 18px; }
@@ -509,12 +514,16 @@
         {% endif %}
 
         <form method="POST" action="/subscribe">
-          <input type="hidden" name="name" value="Crochet Maker">
           <input type="hidden" name="project_types" value="any">
           <input type="hidden" name="yarn_weights" value="any">
           <input type="hidden" name="time_commitment" value="any">
           <input type="hidden" name="budget" value="No limit">
           <input type="hidden" name="wants_video" value="on">
+
+          <div>
+            <label class="field-label" for="name">Name</label>
+            <input type="text" id="name" name="name" placeholder="Crochet Maker" autocomplete="name" required>
+          </div>
 
           <div>
             <label class="field-label" for="email">Email</label>
@@ -544,6 +553,15 @@
               {% for a in aesthetics %}
               <option value="{{ a }}">{{ a }}</option>
               {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="field-label" for="email_frequency">How often do you want picks?</label>
+            <select id="email_frequency" name="email_frequency">
+              <option value="weekly">Weekly</option>
+              <option value="every_2_weeks" selected>Every 2 weeks</option>
+              <option value="monthly">Monthly</option>
             </select>
           </div>
 
@@ -609,7 +627,7 @@
     <section class="clarity" aria-labelledby="after-signup">
       <h2 id="after-signup">What happens after you sign up?</h2>
       <p>You’ll receive crochet patterns matched to your skill level and style. Each send includes materials and tutorial guidance so you can start faster. No physical kits, no spam, just useful pattern recommendations.</p>
-      <p class="builder-note">Still improving this — feedback helps shape what gets added next.</p>
+      <p class="builder-note">Built by a real person, still improving this with feedback.</p>
     </section>
   </main>
 </body>

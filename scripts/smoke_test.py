@@ -72,6 +72,7 @@ def main() -> int:
                 "color_preferences": "blue",
                 "aesthetic": "Cozy",
                 "budget": "$10-$25",
+                "email_frequency": "monthly",
                 "wants_video": "on",
                 "free_only": "on",
             },
@@ -89,6 +90,7 @@ def main() -> int:
         users = database.get_active_users()
         assert len(users) == 1, f"expected 1 active user, found {len(users)}"
         user = users[0]
+        assert user["email_frequency"] == "monthly", "email frequency preference was not saved"
 
         original_chat = competition_intelligence_agent.llm.chat
         original_ddg = competition_intelligence_agent.llm.ddg_search

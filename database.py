@@ -58,6 +58,7 @@ def init_db():
                 color_preferences  TEXT    DEFAULT '',
                 aesthetic          TEXT    DEFAULT '',
                 budget             TEXT    DEFAULT '',
+                email_frequency    TEXT    DEFAULT 'every_2_weeks',
                 free_only          INTEGER DEFAULT 0,
                 wants_video        INTEGER DEFAULT 1,
                 wants_printable    INTEGER DEFAULT 0,
@@ -95,11 +96,13 @@ def init_db():
             );
         """)
         _ensure_column(conn, "users", "updated_at", "TEXT")
+        _ensure_column(conn, "users", "email_frequency", "TEXT DEFAULT 'every_2_weeks'")
 
 
 def upsert_user(name, email, skill_level, project_types, yarn_weights,
                 time_commitment, color_preferences, aesthetic, budget,
-                free_only, wants_video, wants_printable, special_interests):
+                free_only, wants_video, wants_printable, special_interests,
+                email_frequency="every_2_weeks"):
     with connect() as conn:
         existing = conn.execute(
             "SELECT id, active, created_at, updated_at FROM users WHERE email=?",
@@ -110,8 +113,9 @@ def upsert_user(name, email, skill_level, project_types, yarn_weights,
             INSERT INTO users
                 (name, email, skill_level, project_types, yarn_weights,
                  time_commitment, color_preferences, aesthetic, budget,
-                 free_only, wants_video, wants_printable, special_interests, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 email_frequency, free_only, wants_video, wants_printable,
+                 special_interests, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(email) DO UPDATE SET
                 name=excluded.name,
                 skill_level=excluded.skill_level,
@@ -121,6 +125,7 @@ def upsert_user(name, email, skill_level, project_types, yarn_weights,
                 color_preferences=excluded.color_preferences,
                 aesthetic=excluded.aesthetic,
                 budget=excluded.budget,
+                email_frequency=excluded.email_frequency,
                 free_only=excluded.free_only,
                 wants_video=excluded.wants_video,
                 wants_printable=excluded.wants_printable,
@@ -131,6 +136,7 @@ def upsert_user(name, email, skill_level, project_types, yarn_weights,
             name, email, skill_level,
             json.dumps(project_types), json.dumps(yarn_weights),
             time_commitment, color_preferences, aesthetic, budget,
+            email_frequency,
             1 if free_only else 0,
             1 if wants_video else 0,
             1 if wants_printable else 0,
@@ -290,6 +296,7 @@ def get_latest_competition_artifact(artifact_name):
 def _deserialize(user: dict) -> dict:
     user["project_types"] = json.loads(user["project_types"])
     user["yarn_weights"] = json.loads(user["yarn_weights"])
+    user["email_frequency"] = user.get("email_frequency") or "every_2_weeks"
     return user
 
 
