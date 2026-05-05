@@ -47,6 +47,11 @@ def main() -> int:
         database.DB_PATH = db_path
         database.init_db()
         scheduler.LOCK_PATH = temp_root / "scheduler.lock"
+        transport_debug = mailer.transport_debug_summary()
+        assert transport_debug["reply_to_configured"], "Reply-To should be configured for feedback replies"
+        assert transport_debug["reply_to_masked"] == "y***@gmail.com", (
+            "Reply-To should point feedback replies to the configured inbox"
+        )
 
         client = app.test_client()
 

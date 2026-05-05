@@ -25,6 +25,7 @@ EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "smtp").strip().lower() or "smtp"
 GMAIL_USER = os.getenv("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 EMAIL_DRY_RUN = os.getenv("EMAIL_DRY_RUN", "false").strip().lower() == "true"
+REPLY_TO_EMAIL = os.getenv("REPLY_TO_EMAIL", "YOUR_REAL_EMAIL@gmail.com").strip()
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip() or "smtp.gmail.com"
 SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "true").strip().lower() != "false"
@@ -115,12 +116,18 @@ def _safe_from_value() -> str:
     return "(missing SMTP sender)"
 
 
+def _reply_to_value() -> str:
+    return REPLY_TO_EMAIL or ""
+
+
 def transport_debug_summary() -> dict:
     return {
         "email_provider": _email_provider(),
         "email_provider_raw": EMAIL_PROVIDER,
         "email_dry_run": EMAIL_DRY_RUN,
         "safe_from": _safe_from_value(),
+        "reply_to_configured": bool(_reply_to_value()),
+        "reply_to_masked": _mask_email(_reply_to_value()),
         "smtp_host": SMTP_HOST,
         "smtp_port": SMTP_PORT,
         "smtp_use_ssl": SMTP_USE_SSL,
@@ -706,6 +713,8 @@ def _send_via_smtp(
     msg["Subject"] = subject
     msg["From"] = f"{BRAND_NAME} <{GMAIL_USER}>"
     msg["To"] = user["email"]
+    if _reply_to_value():
+        msg["Reply-To"] = _reply_to_value()
     msg.attach(MIMEText(plain, "plain", "utf-8"))
     msg.attach(MIMEText(html, "html", "utf-8"))
 
@@ -766,6 +775,8 @@ def _send_via_resend(user: dict, subject: str, plain: str, html: str, summary_te
         "text": plain,
         "html": html,
     }
+    if _reply_to_value():
+        payload["reply_to"] = [_reply_to_value()]
     request = Request(
         RESEND_API_URL,
         data=json.dumps(payload).encode("utf-8"),
