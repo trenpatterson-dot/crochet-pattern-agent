@@ -75,6 +75,14 @@
       font-weight: 650;
     }
 
+    .kit-note {
+      margin-top: 16px;
+      max-width: 560px;
+      color: #4b4339;
+      font-size: 16px;
+      font-weight: 750;
+    }
+
     .button-link,
     .submit-btn {
       min-height: 54px;
@@ -139,6 +147,30 @@
       color: #2f2a22;
       font-size: 15px;
       font-weight: 900;
+    }
+
+    .hero-visual {
+      width: min(420px, 100%);
+      margin-top: 28px;
+      overflow: hidden;
+      border: 1px solid #f0e0ca;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 18px 34px rgba(68, 52, 30, 0.1);
+    }
+
+    .hero-visual img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+    }
+
+    .hero-visual figcaption {
+      padding: 12px 14px 14px;
+      color: #4b4339;
+      font-size: 14px;
+      font-weight: 750;
     }
 
     .signup-card {
@@ -288,6 +320,45 @@
       font-weight: 750;
     }
 
+    .outcome-preview {
+      margin-top: 28px;
+      padding: 30px;
+      background: #f3efe7;
+      border-radius: 8px;
+    }
+
+    .outcome-preview h2 {
+      color: #2f2a22;
+      font-size: 26px;
+      margin-bottom: 14px;
+    }
+
+    .outcome-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .outcome-card {
+      min-height: 150px;
+      padding: 18px;
+      border: 1px solid #ead9c2;
+      border-radius: 8px;
+      background: #fffdf9;
+    }
+
+    .outcome-card h3 {
+      color: #2f2a22;
+      font-size: 18px;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .outcome-card p {
+      color: #63594d;
+      font-size: 15px;
+    }
+
     .clarity {
       margin-top: 34px;
       padding: 30px;
@@ -307,6 +378,13 @@
       font-size: 17px;
     }
 
+    .builder-note {
+      margin-top: 16px;
+      color: #75613f;
+      font-size: 15px;
+      font-weight: 750;
+    }
+
     @media (max-width: 820px) {
       .page { padding: 16px 14px 36px; }
       .hero {
@@ -322,6 +400,9 @@
       .button-link { width: 100%; }
       .signup-card { padding: 22px 18px; }
       .value-list { margin-top: 26px; }
+      .hero-visual { margin-top: 22px; }
+      .outcome-preview { padding: 24px 18px; }
+      .outcome-grid { grid-template-columns: 1fr; }
       .clarity { padding: 24px 18px; }
     }
 
@@ -338,25 +419,33 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-copy">
         <p class="eyebrow">Crochet Pattern Finder</p>
-        <h1 id="hero-title">Find crochet patterns you'll actually want to make</h1>
-        <p class="subtext">Tell me your style → I send you patterns + materials</p>
+        <h1 id="hero-title">Crochet patterns picked for your skill and style.</h1>
+        <p class="subtext">Tell me what you like → get patterns, materials, and tutorial guidance sent to your inbox.</p>
 
         <div class="hero-actions">
           <a class="button-link" href="#signup">Get My First Pattern</a>
-          <a class="button-link secondary" href="#signup">See What You'll Get</a>
+          <a class="button-link secondary" href="#what-you-get">See What You’ll Get</a>
         </div>
-        <p class="trust-line">Used by crochet beginners to find patterns faster</p>
+        <p class="trust-line">Takes 10 seconds. No spam.</p>
+        <p class="kit-note">No physical kits — just patterns + what you need so you can start faster.</p>
 
         <ul class="value-list" aria-label="Why sign up">
-          <li><span class="check">✓</span><span>No more searching for hours</span></li>
-          <li><span class="check">✓</span><span>Beginner-friendly picks</span></li>
-          <li><span class="check">✓</span><span>Materials included so you can start immediately</span></li>
+          <li><span class="check">✓</span><span>Example pattern styles matched to what you like</span></li>
+          <li><span class="check">✓</span><span>Beginner-friendly ideas when you want an easy start</span></li>
+          <li><span class="check">✓</span><span>Materials + guidance included</span></li>
         </ul>
+
+        <figure class="hero-visual">
+          <img src="{{ url_for('static', filename='images/example-blanket-pattern.svg') }}"
+            alt="Warm crochet blanket pattern preview with yarn and hook"
+            width="640" height="480" decoding="async">
+          <figcaption>Pick the vibe. Get a pattern path that is easier to start.</figcaption>
+        </figure>
       </div>
 
       <div class="signup-card" id="signup">
-        <h2>Start your first picks</h2>
-        <p class="form-note">Three quick details. No long quiz.</p>
+        <h2>Get your first pattern picks</h2>
+        <p class="form-note">Three quick details. Patterns, materials, and tutorial guidance by email.</p>
 
         {% if error %}
         <div class="error-msg">{{ error }}</div>
@@ -407,27 +496,46 @@
       </div>
     </section>
 
+    <section class="outcome-preview" id="what-you-get" aria-labelledby="what-you-get-title">
+      <h2 id="what-you-get-title">What you’ll get</h2>
+      <div class="outcome-grid">
+        <article class="outcome-card">
+          <h3>Patterns picked for your skill level</h3>
+          <p>Beginner or intermediate, the ideas are chosen to fit where you are right now.</p>
+        </article>
+        <article class="outcome-card">
+          <h3>Materials listed so you know what to grab</h3>
+          <p>Yarn, hooks, tools, and helpful notes are gathered with the pattern.</p>
+        </article>
+        <article class="outcome-card">
+          <h3>Tutorial guidance so you know where to start</h3>
+          <p>Each email points you toward the first steps, what to watch for, and where to begin.</p>
+        </article>
+      </div>
+    </section>
+
     <section class="examples" aria-labelledby="example-patterns">
-      <h2 id="example-patterns">Example patterns you’ll get</h2>
+      <h2 id="example-patterns">Example pattern styles</h2>
       <div class="example-grid">
         <figure class="example-card">
           <img src="{{ url_for('static', filename='images/example-blanket-pattern.svg') }}"
-            alt="Example crochet blanket pattern with yarn and hook"
+            alt="Beginner-friendly crochet blanket idea with yarn and hook"
             width="640" height="480" loading="lazy" decoding="async">
-          <figcaption class="example-caption">Cozy blanket pattern + material list</figcaption>
+          <figcaption class="example-caption">Beginner-friendly ideas</figcaption>
         </figure>
         <figure class="example-card">
           <img src="{{ url_for('static', filename='images/example-amigurumi-pattern.svg') }}"
-            alt="Example amigurumi crochet pattern with yarn colors"
+            alt="Crochet amigurumi pattern style with yarn colors and tutorial guidance"
             width="640" height="480" loading="lazy" decoding="async">
-          <figcaption class="example-caption">Beginner amigurumi pick + tutorial guidance</figcaption>
+          <figcaption class="example-caption">Materials + guidance included</figcaption>
         </figure>
       </div>
     </section>
 
     <section class="clarity" aria-labelledby="after-signup">
       <h2 id="after-signup">What happens after you sign up?</h2>
-      <p>You’ll receive curated crochet patterns matched to your skill level and style. Each send includes materials and tutorial guidance so you can start faster. No spam, just useful pattern recommendations.</p>
+      <p>You’ll receive crochet patterns matched to your skill level and style. Each send includes materials and tutorial guidance so you can start faster. No physical kits, no spam, just useful pattern recommendations.</p>
+      <p class="builder-note">Still improving this — feedback helps shape what gets added next.</p>
     </section>
   </main>
 </body>
