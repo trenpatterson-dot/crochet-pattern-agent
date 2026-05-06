@@ -22,6 +22,7 @@ def _set_env(db_path: Path) -> None:
     os.environ["SEND_FIRST_EMAIL_ON_SIGNUP"] = "false"
     os.environ["GMAIL_USER"] = "dryrun@example.com"
     os.environ["GMAIL_APP_PASSWORD"] = "not-used"
+    os.environ["REPLY_TO_EMAIL"] = "YOUR_REAL_EMAIL@gmail.com"
     os.environ["AMAZON_ASSOCIATE_TAG"] = "smoketest-20"
 
 
@@ -48,9 +49,18 @@ def main() -> int:
         database.init_db()
         scheduler.LOCK_PATH = temp_root / "scheduler.lock"
         transport_debug = mailer.transport_debug_summary()
-        assert transport_debug["reply_to_configured"], "Reply-To should be configured for feedback replies"
-        assert transport_debug["reply_to_masked"] == "y***@gmail.com", (
-            "Reply-To should point feedback replies to the configured inbox"
+        assert transport_debug["reply_to_configured"], "Reply-To should fall back to a valid sender"
+        assert transport_debug["reply_to_masked"] == "d***@example.com", (
+            "placeholder Reply-To values should fall back to the configured sender"
+        )
+        assert transport_debug["reply_to_source"] == "sender_fallback", (
+            "placeholder Reply-To values should not be treated as configured inboxes"
+        )
+        assert transport_debug["reply_to_placeholder_rejected"], (
+            "placeholder Reply-To values should be explicitly rejected"
+        )
+        assert "YOUR_REAL_EMAIL" not in str(transport_debug), (
+            "transport debug output should never expose placeholder Reply-To values"
         )
 
         client = app.test_client()

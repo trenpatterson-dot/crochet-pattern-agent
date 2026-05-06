@@ -26,7 +26,7 @@ EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "smtp").strip().lower() or "smtp"
 GMAIL_USER = os.getenv("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 EMAIL_DRY_RUN = os.getenv("EMAIL_DRY_RUN", "false").strip().lower() == "true"
-REPLY_TO_EMAIL = os.getenv("REPLY_TO_EMAIL", "YOUR_REAL_EMAIL@gmail.com").strip()
+REPLY_TO_EMAIL = os.getenv("REPLY_TO_EMAIL", "").strip()
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip() or "smtp.gmail.com"
 SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "true").strip().lower() != "false"
@@ -43,6 +43,12 @@ MATERIALS_SECTION_HEADER = "\U0001F9F6 What You\u2019ll Need (Quick Buy Links)"
 _LAST_SEND_ERROR: dict | None = None
 BRAND_NAME = "StitchFlow Labs"
 NEWSLETTER_NAME = "StitchFlow Labs Crochet Picks"
+PLACEHOLDER_REPLY_TO_MARKERS = (
+    "your_real_email",
+    "your-email",
+    "your_email",
+    "example.com",
+)
 
 SKILL_COLORS = {
     "beginner": "#4CAF50",
@@ -154,18 +160,69 @@ def _safe_from_value() -> str:
     return "(missing SMTP sender)"
 
 
+def _is_placeholder_email(email: str) -> bool:
+    candidate = (email or "").strip().lower()
+    return bool(candidate and any(marker in candidate for marker in PLACEHOLDER_REPLY_TO_MARKERS))
+
+
+def _sender_reply_to_fallback() -> str:
+    if _email_provider() == "resend":
+        _, parsed = parseaddr(RESEND_FROM or "")
+        return parsed if _valid_recipient(parsed) else ""
+    return GMAIL_USER if _valid_recipient(GMAIL_USER) else ""
+
+
+def _reply_to_status() -> dict:
+    raw_reply_to = REPLY_TO_EMAIL
+    if raw_reply_to:
+        if _is_placeholder_email(raw_reply_to):
+            fallback = _sender_reply_to_fallback()
+            return {
+                "value": fallback,
+                "source": "sender_fallback" if fallback else "placeholder_rejected",
+                "placeholder_rejected": True,
+                "raw_configured": True,
+            }
+        if _valid_recipient(raw_reply_to):
+            return {
+                "value": raw_reply_to,
+                "source": "configured",
+                "placeholder_rejected": False,
+                "raw_configured": True,
+            }
+        fallback = _sender_reply_to_fallback()
+        return {
+            "value": fallback,
+            "source": "sender_fallback" if fallback else "invalid_rejected",
+            "placeholder_rejected": False,
+            "raw_configured": True,
+        }
+
+    fallback = _sender_reply_to_fallback()
+    return {
+        "value": fallback,
+        "source": "sender_fallback" if fallback else "missing",
+        "placeholder_rejected": False,
+        "raw_configured": False,
+    }
+
+
 def _reply_to_value() -> str:
-    return REPLY_TO_EMAIL or ""
+    return _reply_to_status()["value"] or ""
 
 
 def transport_debug_summary() -> dict:
+    reply_to = _reply_to_status()
     return {
         "email_provider": _email_provider(),
         "email_provider_raw": EMAIL_PROVIDER,
         "email_dry_run": EMAIL_DRY_RUN,
         "safe_from": _safe_from_value(),
-        "reply_to_configured": bool(_reply_to_value()),
-        "reply_to_masked": _mask_email(_reply_to_value()),
+        "reply_to_configured": bool(reply_to["value"]),
+        "reply_to_masked": _mask_email(reply_to["value"]),
+        "reply_to_source": reply_to["source"],
+        "reply_to_raw_configured": reply_to["raw_configured"],
+        "reply_to_placeholder_rejected": reply_to["placeholder_rejected"],
         "smtp_host": SMTP_HOST,
         "smtp_port": SMTP_PORT,
         "smtp_use_ssl": SMTP_USE_SSL,
@@ -915,8 +972,9 @@ def _send_via_smtp(
     msg["Subject"] = subject
     msg["From"] = f"{BRAND_NAME} <{GMAIL_USER}>"
     msg["To"] = user["email"]
-    if _reply_to_value():
-        msg["Reply-To"] = _reply_to_value()
+    reply_to = _reply_to_value()
+    if reply_to:
+        msg["Reply-To"] = reply_to
     msg.attach(MIMEText(plain, "plain", "utf-8"))
     msg.attach(MIMEText(html, "html", "utf-8"))
 
@@ -977,8 +1035,9 @@ def _send_via_resend(user: dict, subject: str, plain: str, html: str, summary_te
         "text": plain,
         "html": html,
     }
-    if _reply_to_value():
-        payload["reply_to"] = [_reply_to_value()]
+    reply_to = _reply_to_value()
+    if reply_to:
+        payload["reply_to"] = [reply_to]
     request = Request(
         RESEND_API_URL,
         data=json.dumps(payload).encode("utf-8"),
@@ -1058,6 +1117,31 @@ def send_report(user: dict, patterns: list[dict], dry_run_override: bool | None 
         f"  [Mailer] transport provider={provider} dry_run={effective_dry_run} "
         f"from={_safe_from_value()} recipient={recipient_masked}"
     )
+    reply_to = _reply_to_status()
+    if reply_to["source"] == "configured":
+        print(f"  [Mailer] Reply-To configured: {_mask_email(reply_to['value'])}")
+    elif reply_to["source"] == "sender_fallback":
+        if reply_to["raw_configured"] and reply_to["placeholder_rejected"]:
+            print(
+                "  [Mailer] Reply-To placeholder value ignored; "
+                f"using sender fallback {_mask_email(reply_to['value'])}."
+            )
+        elif reply_to["raw_configured"]:
+            print(
+                "  [Mailer] Reply-To value is invalid; "
+                f"using sender fallback {_mask_email(reply_to['value'])}."
+            )
+        else:
+            print(
+                "  [Mailer] Reply-To is not configured; "
+                f"using sender fallback {_mask_email(reply_to['value'])}."
+            )
+    elif reply_to["source"] == "placeholder_rejected":
+        print("  [Mailer] Reply-To placeholder value ignored; outgoing message will omit Reply-To.")
+    elif reply_to["source"] == "invalid_rejected":
+        print("  [Mailer] Reply-To value is invalid; outgoing message will omit Reply-To.")
+    else:
+        print("  [Mailer] Reply-To is not configured; outgoing message will omit Reply-To.")
 
     if effective_dry_run:
         _, _, html, _ = _build_message_content(user, patterns)
