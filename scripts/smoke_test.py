@@ -445,6 +445,21 @@ def main() -> int:
         assert "~$" not in rendered_html, "email HTML should not contain approximate pricing"
         assert "$4.99" not in rendered_html, "email HTML should not contain fake pricing"
         assert "Price varies by retailer" in rendered_html, "email HTML should show retailer-safe pricing text"
+        assert "Beginner Confidence" in rendered_html, "email HTML should include beginner confidence score"
+        assert "Beginner Confidence: High" in rendered_html, "email HTML should render a confidence level"
+        assert "<strong>Why:</strong>" in rendered_html, "email HTML should include confidence reason text"
+        assert "Likely beginner-friendly" in rendered_html, (
+            "confidence reason should use cautious beginner-friendly wording"
+        )
+        forbidden_guarantees = [
+            "anyone can make this",
+            "guaranteed",
+            "guarantee",
+        ]
+        lowered_html = rendered_html.lower()
+        assert not any(term in lowered_html for term in forbidden_guarantees), (
+            "email HTML should not add fake beginner guarantees"
+        )
         assert "Start Here" in rendered_html, "email HTML should include quick-start guidance"
         assert "How to Make It" in rendered_html, "email HTML should include guided tutorial steps"
         assert "What to Watch For" in rendered_html, "email HTML should include beginner tips"

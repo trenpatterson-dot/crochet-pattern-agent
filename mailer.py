@@ -6,6 +6,7 @@ Supports SMTP fallback and Resend HTTPS API delivery.
 
 import json
 import os
+import re
 import smtplib
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
@@ -48,6 +49,43 @@ SKILL_COLORS = {
     "intermediate": "#FF9800",
     "advanced": "#9C27B0",
 }
+
+SKILL_ORDER = {
+    "beginner": 0,
+    "easy": 0,
+    "intermediate": 1,
+    "advanced": 2,
+}
+
+SPECIAL_TECHNIQUE_TERMS = {
+    "magic ring": "magic ring",
+    "mc": "magic ring",
+    "increase": "increases",
+    "inc": "increases",
+    "decrease": "decreases",
+    "dec": "decreases",
+    "sc2tog": "decreases",
+    "blo": "back-loop stitches",
+    "flo": "front-loop stitches",
+    "color change": "color changes",
+    "join": "joining",
+    "seam": "seaming",
+    "stuff": "stuffing",
+    "safety eyes": "safety eyes",
+    "panel": "panel construction",
+    "shape": "shaping",
+    "blocking": "blocking",
+}
+
+MATERIAL_DIFFICULTY_TERMS = (
+    "chenille",
+    "velvet",
+    "fuzzy",
+    "eyelash",
+    "novelty",
+    "dark yarn",
+    "black yarn",
+)
 
 
 def _unsubscribe_token(email: str) -> str:
@@ -241,6 +279,168 @@ def _compact_value(value: str, fallback: str) -> str:
     return cleaned if cleaned else fallback
 
 
+def _pattern_text_blob(pattern: dict) -> str:
+    parts = [
+        pattern.get("title", ""),
+        pattern.get("project_type", ""),
+        pattern.get("estimated_time", ""),
+        pattern.get("description", ""),
+        pattern.get("snippet", ""),
+        pattern.get("why_its_perfect", ""),
+        pattern.get("why_created", ""),
+        pattern.get("instructions", ""),
+        pattern.get("tutorial_guidance", ""),
+    ]
+    parts.extend(str(value) for value in (pattern.get("abbreviations") or {}).keys())
+    parts.extend(str(value) for value in (pattern.get("abbreviations") or {}).values())
+    for material in pattern.get("materials") or []:
+        parts.append(str(material.get("name", "")))
+    return " ".join(parts).lower()
+
+
+def _special_techniques(pattern: dict) -> list[str]:
+    blob = _pattern_text_blob(pattern)
+    found = []
+    for marker, label in SPECIAL_TECHNIQUE_TERMS.items():
+        if marker in blob and label not in found:
+            found.append(label)
+    return found
+
+
+def _estimated_hours(value: str) -> float | None:
+    text = (value or "").lower()
+    numbers = [float(match) for match in re.findall(r"\d+(?:\.\d+)?", text)]
+    if numbers:
+        return max(numbers)
+    if "quick" in text or "short" in text:
+        return 2.0
+    if "few evening" in text:
+        return 6.0
+    if "weekend" in text or "full" in text:
+        return 10.0
+    return None
+
+
+def _beginner_confidence(pattern: dict, user: dict) -> dict:
+    pattern_skill = (pattern.get("skill_level") or pattern.get("difficulty") or "beginner").strip().lower()
+    user_skill = (user.get("skill_level") or "beginner").strip().lower()
+    project_type = (pattern.get("project_type") or "").strip().lower()
+    materials = pattern.get("materials") or []
+    blob = _pattern_text_blob(pattern)
+    special = _special_techniques(pattern)
+    hours = _estimated_hours(pattern.get("estimated_time", ""))
+    has_tutorial = bool(
+        (pattern.get("video_tutorial") or {}).get("url")
+        or pattern.get("tutorial_guidance")
+        or pattern.get("tutorial_candidates")
+        or pattern.get("has_video")
+    )
+
+    points = 0
+    reasons = []
+
+    skill_gap = SKILL_ORDER.get(pattern_skill, 0) - SKILL_ORDER.get(user_skill, 0)
+    if skill_gap <= 0:
+        points += 2
+        reasons.append("matches your skill level")
+    elif skill_gap == 1:
+        points -= 1
+        reasons.append("may stretch your current skill level")
+    else:
+        points -= 3
+        reasons.append("looks above your current skill level")
+
+    if len(special) <= 1:
+        points += 2
+        reasons.append("uses mostly basic techniques")
+    elif len(special) <= 3:
+        points += 1
+        reasons.append("has a few special techniques")
+    else:
+        points -= 2
+        reasons.append("has several special techniques")
+
+    if hours is not None:
+        if hours <= 2:
+            points += 2
+            reasons.append("works up quickly")
+        elif hours <= 6:
+            points += 1
+            reasons.append("fits a manageable project window")
+        else:
+            points -= 1
+            reasons.append("may take longer than a quick starter project")
+    elif project_type in {"accessories", "holiday"}:
+        points += 1
+        reasons.append("looks like a smaller project")
+
+    if has_tutorial:
+        points += 1
+        reasons.append("includes tutorial guidance")
+    else:
+        reasons.append("tutorial support is not obvious")
+
+    if 0 < len(materials) <= 4:
+        points += 1
+        reasons.append("uses a short materials list")
+    elif len(materials) >= 6:
+        points -= 1
+        reasons.append("needs several materials")
+
+    if any(term in blob for term in MATERIAL_DIFFICULTY_TERMS):
+        points -= 1
+        reasons.append("material choice may need extra care")
+    elif "yarn" in blob and "hook" in blob:
+        points += 1
+        reasons.append("uses common materials")
+
+    finishing_terms = sum(1 for term in ("seam", "join", "blocking", "stuff", "safety eyes") if term in blob)
+    if finishing_terms >= 3:
+        points -= 1
+        reasons.append("finishing may need extra attention")
+    elif "weave" in blob or "fasten" in blob or pattern.get("is_original"):
+        points += 1
+        reasons.append("finishing steps are called out")
+
+    if points >= 6:
+        score = "High"
+        lead = "Likely beginner-friendly"
+    elif points >= 3:
+        score = "Medium"
+        lead = "Good starter pick with a few things to watch"
+    else:
+        score = "Low"
+        lead = "May need extra support before starting"
+
+    compact_reasons = []
+    for reason in reasons:
+        if reason not in compact_reasons:
+            compact_reasons.append(reason)
+    why = f"{lead}: " + ", ".join(compact_reasons[:4]) + "."
+    return {"score": score, "why": why}
+
+
+def _beginner_confidence_html(pattern: dict, user: dict) -> str:
+    confidence = _beginner_confidence(pattern, user)
+    score = confidence["score"]
+    colors = {
+        "High": ("#E8F5E9", "#2E7D32", "#A5D6A7"),
+        "Medium": ("#FFF8E1", "#8A5A00", "#FFE082"),
+        "Low": ("#FCEEEE", "#9A3412", "#F5B5A5"),
+    }
+    bg, fg, border = colors.get(score, colors["Medium"])
+    return (
+        '<table cellpadding="0" cellspacing="0" style="margin:0 0 12px;width:100%;">'
+        f'<tr><td style="background:{bg};border:1px solid {border};'
+        'border-radius:8px;padding:10px 12px;">'
+        f'<p style="margin:0 0 4px;font-size:13px;font-weight:800;color:{fg};">'
+        f'Beginner Confidence: {score}</p>'
+        f'<p style="margin:0;font-size:12px;line-height:1.55;color:#4B4038;">'
+        f'<strong>Why:</strong> {confidence["why"]}</p>'
+        '</td></tr></table>'
+    )
+
+
 def _guided_tutorial_html(pattern: dict, action_text: str) -> str:
     skill = _compact_value(pattern.get("skill_level", ""), "beginner").capitalize()
     project = _compact_value(pattern.get("project_type", ""), "project").replace("_", " ").title()
@@ -285,7 +485,7 @@ def _guided_tutorial_html(pattern: dict, action_text: str) -> str:
     )
 
 
-def _found_pattern_block(p: dict, idx: int) -> str:
+def _found_pattern_block(p: dict, idx: int, user: dict) -> str:
     skill = p.get("skill_level", "")
     skill_color = SKILL_COLORS.get(skill, "#888")
     video = p.get("video_tutorial") or {}
@@ -329,6 +529,7 @@ def _found_pattern_block(p: dict, idx: int) -> str:
         <a href="{p.get('url','#')}" style="color:#6A1B9A;text-decoration:none;">
           {p.get("title","")}</a>
       </h3>
+      {_beginner_confidence_html(p, user)}
       {guided_tutorial}
       {pattern_button}
       {video_button}
@@ -363,7 +564,7 @@ def _found_pattern_block(p: dict, idx: int) -> str:
 </td></tr>"""
 
 
-def _original_pattern_block(p: dict, idx: int) -> str:
+def _original_pattern_block(p: dict, idx: int, user: dict) -> str:
     skill = p.get("skill_level", "")
     skill_color = SKILL_COLORS.get(skill, "#888")
     materials = p.get("materials", [])
@@ -413,6 +614,7 @@ def _original_pattern_block(p: dict, idx: int) -> str:
       <p style="margin:0 0 12px;font-size:13px;color:#A1670A;font-style:italic;">
         {p.get("tagline","")}
       </p>
+      {_beginner_confidence_html(p, user)}
       {guided_tutorial}
       {pattern_button}
       {tutorial_html}
@@ -511,7 +713,7 @@ def build_html(user: dict, patterns: list[dict]) -> str:
     </p>
   </td></tr>
   <table width="100%" cellpadding="0" cellspacing="0">
-    {"".join(_found_pattern_block(p, i + 1) for i, p in enumerate(found))}
+    {"".join(_found_pattern_block(p, i + 1, user) for i, p in enumerate(found))}
   </table>"""
 
     original_section = ""
@@ -524,7 +726,7 @@ def build_html(user: dict, patterns: list[dict]) -> str:
     </p>
   </td></tr>
   <table width="100%" cellpadding="0" cellspacing="0">
-    {"".join(_original_pattern_block(p, len(found) + i + 1) for i, p in enumerate(originals))}
+    {"".join(_original_pattern_block(p, len(found) + i + 1, user) for i, p in enumerate(originals))}
   </table>"""
 
     html = f"""<!DOCTYPE html>
