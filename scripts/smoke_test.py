@@ -111,16 +111,36 @@ def main() -> int:
 
         def fake_chat(system, user_msg, use_web_search=False, max_tokens=4096):
             if "TASK: competitors" in user_msg:
+                assert "Splitting Yarn" in user_msg, "competitor prompt should include the beginner pain-point rubric"
+                assert "Overall beginner-friendliness score from 1-10" in user_msg, (
+                    "competitor prompt should require the beginner-friendliness score"
+                )
                 return json.dumps(
                     {
                         "generated_at": "2026-04-28T09:00:00",
                         "competitors": [
                             {
                                 "name": "CozyLoops Studio",
+                                "link": "https://example.com/etsy",
                                 "platform": "Etsy",
                                 "niche": "amigurumi",
-                                "engagement_signals": ["high review visibility"],
-                                "observed_focus": ["cute animal crochet"],
+                                "what_they_do_well": ["Simple project photos and visible beginner listings."],
+                                "beginner_pain_points_addressed": ["Project Overwhelm"],
+                                "beginner_pain_points_missed": [
+                                    "Splitting Yarn",
+                                    "Left-Handed Frustration",
+                                    "The Finishing Gap",
+                                ],
+                                "confusing_beginner_experience": [
+                                    "Listings do not visibly explain yarn splitting or finishing support."
+                                ],
+                                "opportunities_for_crochet_pattern_agent": [
+                                    "Add beginner-first notes before the project link."
+                                ],
+                                "recommended_feature_content_ideas": [
+                                    "Create a first-project checklist with yarn and finishing warnings."
+                                ],
+                                "overall_beginner_friendliness_score": 6,
                                 "evidence_urls": ["https://example.com/etsy"],
                                 "notes": "Visible beginner-friendly listings.",
                             }
@@ -204,6 +224,17 @@ def main() -> int:
             assert (intel_root / "latest" / f"{name}.json").exists(), f"{name}.json should exist"
             latest_artifact = database.get_latest_competition_artifact(name)
             assert latest_artifact is not None, f"{name} artifact should be saved in SQLite"
+        competitor_artifact = database.get_latest_competition_artifact("competitors")["artifact_json"]
+        competitor = competitor_artifact["competitors"][0]
+        assert "beginner_pain_points_addressed" in competitor, (
+            "competitor artifact should include addressed beginner pain points"
+        )
+        assert "beginner_pain_points_missed" in competitor, (
+            "competitor artifact should include missed beginner pain points"
+        )
+        assert competitor["overall_beginner_friendliness_score"] == 6, (
+            "competitor artifact should include a 1-10 beginner-friendliness score"
+        )
 
         fake_result = {
             "user_name": user["name"],

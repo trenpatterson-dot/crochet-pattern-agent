@@ -63,11 +63,27 @@ When the Resend domain is verified and the dry-run looks good, switch `EMAIL_DRY
 
 The repo now includes a `Competition Intelligence Agent` for StitchFlow Labs. It:
 
-- researches crochet competitors across Etsy, Ravelry, YouTube, and blogs
+- researches crochet competitors across websites, blogs, YouTube tutorials, Pinterest-style discovery, pattern platforms, beginner crochet tools, Etsy, and Ravelry
+- evaluates competitors by beginner friction, not just pattern quantity or generic popularity
 - identifies weekly crochet trends and seasonal demand signals
 - generates high-intent keywords and product-buying signals
 - writes structured outputs to `intel/latest/`
 - stores each weekly snapshot in SQLite for reuse by the recommendation pipeline
+
+Crochet Pattern Agent should compete by helping beginners who are tired of "easy" crochet patterns that are not actually easy. Competitor research must use these beginner pain points as the required rubric:
+
+1. Splitting Yarn
+2. The Magic Ring
+3. Losing Stitches
+4. Tension Issues
+5. Pattern Language
+6. Hand Pain
+7. Yarn Selection Confusion
+8. Left-Handed Frustration
+9. The Finishing Gap
+10. Project Overwhelm
+
+Each competitor entry should include the competitor name/link, what they do well, beginner pain points addressed, beginner pain points missed, confusing parts of the beginner experience, opportunities for Crochet Pattern Agent, recommended feature/content ideas, and an overall beginner-friendliness score from 1-10. Do not make unsupported marketing claims; use visible public evidence and cautious wording.
 
 Artifacts written on refresh:
 

@@ -21,8 +21,92 @@ ROOT = Path(__file__).resolve().parent.parent
 INTEL_ROOT = Path(os.getenv("COMPETITION_INTEL_DIR", ROOT / "intel"))
 STABLE_INTEL_ROOT = ROOT / "intel"
 
+BEGINNER_PAIN_POINT_RUBRIC = [
+    {
+        "name": "Splitting Yarn",
+        "evaluation_lens": (
+            "Whether competitors warn beginners about yarn that splits easily and "
+            "recommend beginner-friendly yarn."
+        ),
+    },
+    {
+        "name": "The Magic Ring",
+        "evaluation_lens": (
+            "Whether competitors push magic ring projects too early, explain it clearly, "
+            "or offer alternatives like chain loops."
+        ),
+    },
+    {
+        "name": "Losing Stitches",
+        "evaluation_lens": (
+            "Whether competitors help beginners understand skipped or extra stitches, "
+            "stitch counting, and why projects get wider or narrower."
+        ),
+    },
+    {
+        "name": "Tension Issues",
+        "evaluation_lens": (
+            "Whether competitors explain tight or loose tension in simple beginner language."
+        ),
+    },
+    {
+        "name": "Pattern Language",
+        "evaluation_lens": (
+            "Whether competitors translate abbreviations like sc, hdc, dc, blo, sc2tog, "
+            "ch, and sl st."
+        ),
+    },
+    {
+        "name": "Hand Pain",
+        "evaluation_lens": (
+            "Whether competitors provide comfort tips for grip, hook size, breaks, "
+            "ergonomic hooks, and beginner hand fatigue."
+        ),
+    },
+    {
+        "name": "Yarn Selection Confusion",
+        "evaluation_lens": (
+            "Whether competitors clearly explain yarn weight, fiber, hook size, and how "
+            "yarn choice affects the final project."
+        ),
+    },
+    {
+        "name": "Left-Handed Frustration",
+        "evaluation_lens": (
+            "Whether competitors support left-handed beginners with mirrored videos, "
+            "left-handed tutorials, filters, or written adjustments."
+        ),
+    },
+    {
+        "name": "The Finishing Gap",
+        "evaluation_lens": (
+            "Whether competitors explain weaving in ends, joining pieces, blocking, "
+            "fastening off, and finishing steps clearly."
+        ),
+    },
+    {
+        "name": "Project Overwhelm",
+        "evaluation_lens": (
+            "Whether competitors recommend small, realistic first projects instead of "
+            "massive blankets or overly complex beginner projects."
+        ),
+    },
+]
+
+BEGINNER_POSITIONING = (
+    "Crochet Pattern Agent is for beginners who are tired of easy crochet patterns "
+    "that are not actually easy. Competitor research should judge beginner friction, "
+    "not just pattern quantity, trend volume, or generic popularity."
+)
+
 SYSTEM_PROFILE = """
 System under analysis: StitchFlow Labs crochet recommendation platform.
+
+Positioning:
+- {BEGINNER_POSITIONING}
+- Compete by reducing beginner friction: confusing patterns, bad yarn choices,
+  hard techniques, left-handed tutorial gaps, unclear finishing steps, and
+  overwhelming first projects.
 
 Current strengths:
 - Email + web recommendation workflow
@@ -39,10 +123,11 @@ Current monetization:
 
 Your task:
 - Find competitor, trend, keyword, and buying-signal intelligence
+- Evaluate competitor beginner experience against the required pain-point rubric
 - Use only public/search-based evidence
 - Never invent sales numbers, search volume, ratings, or popularity
 - If a signal is weak or uncertain, label it conservatively or omit it
-""".strip()
+""".format(BEGINNER_POSITIONING=BEGINNER_POSITIONING).strip()
 
 
 def _timestamp() -> str:
@@ -160,6 +245,8 @@ def _artifact_queries() -> dict[str, list[str]]:
             "Ravelry popular crochet patterns beginner amigurumi blanket",
             "top crochet YouTube channels beginner amigurumi blanket",
             "best crochet blogs beginner patterns crochet tutorials",
+            "beginner crochet tools stitch counter row counter yarn guide",
+            "Pinterest beginner crochet patterns easy tutorial magic ring",
         ],
         "trends": [
             "Google Trends crochet patterns baby blanket amigurumi",
@@ -189,22 +276,43 @@ def _build_competitors(started_at: str) -> dict:
   "competitors": [
     {
       "name": "Competitor name",
-      "platform": "Etsy | Ravelry | YouTube | Blog",
+      "link": "https://...",
+      "platform": "Website | Blog | YouTube | Pinterest-style discovery | Pattern platform | Beginner crochet tool | Etsy | Ravelry | Other",
       "niche": "amigurumi | blankets | beginner | baby | seasonal | other",
-      "engagement_signals": ["brief observed public signals only"],
-      "observed_focus": ["pattern or content themes they emphasize"],
+      "what_they_do_well": ["short evidence-based strengths"],
+      "beginner_pain_points_addressed": ["Splitting Yarn", "Pattern Language"],
+      "beginner_pain_points_missed": ["Left-Handed Frustration", "The Finishing Gap"],
+      "confusing_beginner_experience": ["where the beginner path is unclear"],
+      "opportunities_for_crochet_pattern_agent": ["specific positioning or UX gaps"],
+      "recommended_feature_content_ideas": ["practical feature or content ideas"],
+      "overall_beginner_friendliness_score": 7,
       "evidence_urls": ["https://..."],
       "notes": "short practical summary"
     }
   ]
 }
 """.strip()
-    instructions = """
+    instructions = f"""
 Identify a practical competitor set for a crochet recommendation business.
-Include Etsy crochet shops, Ravelry popular pattern sources, YouTube crochet channels, and crochet blogs.
+Include crochet websites, blogs, YouTube tutorials, Pinterest-style discovery, pattern platforms,
+beginner crochet tools, Etsy crochet shops, and Ravelry popular pattern sources.
+Use this required beginner pain-point rubric as the evaluation lens:
+{json.dumps(BEGINNER_PAIN_POINT_RUBRIC, indent=2)}
+
+For each competitor, produce:
+- Competitor name/link
+- What they do well
+- Beginner pain points they address
+- Beginner pain points they miss
+- Where their beginner experience is confusing
+- Opportunities for Crochet Pattern Agent
+- Recommended feature/content ideas
+- Overall beginner-friendliness score from 1-10
+
 Capture only visible public engagement signals such as ratings, views, bestseller language, popularity labels,
 subscriber mentions in snippets, or repeated appearance across search results.
 If you cannot verify a signal from public evidence, omit it.
+Do not make unsupported marketing claims. Judge the beginner experience cautiously from visible public evidence.
 """
     data = _call_llm("competitors", instructions, _artifact_queries()["competitors"], schema_hint)
     data["generated_at"] = started_at
@@ -356,12 +464,27 @@ def build_prompt_context() -> str:
     if not artifacts:
         return ""
 
+    competitors = artifacts.get("competitors", {}).get("competitors", [])[:4]
     trends = artifacts.get("trends", {}).get("trends", [])[:5]
     keywords = artifacts.get("keywords", {}).get("keywords", [])[:5]
     opportunities = artifacts.get("opportunities", {}).get("opportunities", [])[:4]
     product_signals = artifacts.get("opportunities", {}).get("product_signals", [])[:4]
 
-    lines = ["Weekly competition intelligence:"]
+    lines = [
+        "Weekly competition intelligence:",
+        BEGINNER_POSITIONING,
+    ]
+
+    if competitors:
+        lines.append("Competitor beginner-friction gaps:")
+        for item in competitors:
+            missed = ", ".join(item.get("beginner_pain_points_missed", [])[:4])
+            confusing = "; ".join(item.get("confusing_beginner_experience", [])[:2])
+            score = item.get("overall_beginner_friendliness_score", "unscored")
+            lines.append(
+                f"- {item.get('name', 'unknown')} score {score}/10; "
+                f"misses: {missed or 'not specified'}; confusing: {confusing or 'not specified'}"
+            )
 
     if trends:
         lines.append("Top crochet trends:")

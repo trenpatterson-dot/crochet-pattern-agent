@@ -67,6 +67,21 @@ Then open:
 & 'C:\Users\trenp\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\python.exe' .\scripts\run_competition_intel.py --force
 ```
 
+The competition intelligence agent is not a generic pattern-finder comparison. It evaluates crochet websites, blogs, YouTube tutorials, Pinterest-style discovery, pattern platforms, and beginner crochet tools by how well they reduce beginner friction:
+
+- splitting yarn
+- magic ring confusion
+- losing stitches
+- tension issues
+- pattern-language confusion
+- hand pain
+- yarn selection confusion
+- left-handed frustration
+- missing finishing guidance
+- project overwhelm
+
+For each competitor, `competitors.json` should include the name/link, what they do well, beginner pain points addressed and missed, confusing beginner-experience areas, opportunities for Crochet Pattern Agent, recommended feature/content ideas, and an overall beginner-friendliness score from 1-10.
+
 Outputs are written to:
 
 - `C:\Users\trenp\crochet-pattern-agent\intel\latest\trends.json`
