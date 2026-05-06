@@ -28,3 +28,12 @@ build/
 Thumbs.db
 intel/
 .tmp/
+
+# Manual feedback - keep real user feedback local/private
+feedback/raw/*.txt
+feedback/raw/*.md
+feedback/raw/*.png
+feedback/raw/*.jpg
+feedback/raw/*.jpeg
+feedback/raw/*.webp
+!feedback/raw/feedback.example.txt
