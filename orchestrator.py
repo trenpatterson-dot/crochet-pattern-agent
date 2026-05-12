@@ -15,6 +15,7 @@ from agents import (
     filter_agent,
     link_validator,
     materials_agent,
+    pattern_trust,
     search_agent,
 )
 
@@ -213,6 +214,10 @@ def run(user: dict) -> Optional[dict]:
 
     print("\n[Orchestrator] -> Link Validator: checking final tutorial URLs...")
     enriched = link_validator.validate_tutorial_links(enriched)
+
+    print("\n[Orchestrator] -> Pattern Trust: scoring AI-risk and review status...")
+    enriched = pattern_trust.apply_trust_metadata(enriched)
+    diagnostics["pattern_trust_meta"] = pattern_trust.queue_review_items(enriched, user)
 
     diagnostics["final_usable_pattern_count"] = len(enriched)
     if not enriched and not diagnostics.get("failure_reason"):

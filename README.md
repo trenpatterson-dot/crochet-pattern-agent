@@ -108,6 +108,50 @@ The scheduler now attempts a weekly intelligence refresh before subscriber recom
 - SQLite is acceptable for a small pilot only.
 - Postgres is recommended before a larger public launch or any higher-concurrency rollout.
 
+## Pattern Trust Layer
+
+The recommendation pipeline now adds lightweight pattern trust metadata before a report is returned. This layer is rules-based and does not claim that a pattern is verified, human-tested, or safe unless that evidence already exists in the pattern data.
+
+Added metadata fields:
+
+- `verified`
+- `human_tested`
+- `creator_attribution`
+- `tutorial_available`
+- `likely_ai_generated`
+- `ai_risk_score`
+- `ai_risk_label`
+- `ai_risk_reasons`
+- `difficulty_confidence`
+- `review_status`
+- `last_verified_date`
+- `reality_check_summary`
+
+AI-risk scoring checks for missing creator/source attribution, missing tutorial or source URLs, vague generic wording, suspicious infographic-style wording, unrealistic beginner claims, thin materials or assembly support, and suspicious stitch-count wording when pattern text exists.
+
+Risk labels:
+
+- `likely_legitimate`
+- `questionable`
+- `likely_ai_generated`
+
+Questionable or likely AI-generated patterns are marked `review_status: needs_review` and appended to the local JSONL review queue at `logs/pattern_review_queue.jsonl`. The queue is local/ignored and should be reviewed manually before any pattern is marked `verified`, `human_tested`, or `community_reviewed`.
+
+Manual review steps:
+
+1. Open `logs/pattern_review_queue.jsonl`.
+2. Check the source URL, creator attribution, materials list, tutorial availability, stitch counts, and assembly steps.
+3. If the pattern is trustworthy, update the source pattern data with a real `review_status` such as `verified` or `community_reviewed`.
+4. Only set `human_tested: true` when someone has actually made or tested the pattern.
+
+What still needs human validation:
+
+- Whether creator attribution is real and complete.
+- Whether stitch counts work across all sizes or rounds.
+- Whether photos are from the actual creator/pattern.
+- Whether instructions are beginner-friendly in practice.
+- Whether a pattern has been made by a human tester or reviewed by the community.
+
 Quick start guide:
 [HOW_TO_RUN.md](/C:/Users/trenp/crochet-pattern-agent/docs/HOW_TO_RUN.md)
 

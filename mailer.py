@@ -498,6 +498,53 @@ def _beginner_confidence_html(pattern: dict, user: dict) -> str:
     )
 
 
+def _trust_label_html(pattern: dict) -> str:
+    label_defs = []
+    if pattern.get("verified"):
+        label_defs.append(("Verified", "#E8F5E9", "#2E7D32"))
+    if pattern.get("human_tested"):
+        label_defs.append(("Human Tested", "#E3F2FD", "#1565C0"))
+    if pattern.get("review_status") == "community_reviewed":
+        label_defs.append(("Community Reviewed", "#E0F2F1", "#00695C"))
+
+    risk_label = pattern.get("ai_risk_label")
+    review_status = pattern.get("review_status")
+    if risk_label == "likely_ai_generated":
+        label_defs.append(("Likely AI Generated", "#FCE4EC", "#AD1457"))
+    elif risk_label == "questionable":
+        label_defs.append(("Questionable", "#FFF8E1", "#8A5A00"))
+    elif review_status == "needs_review":
+        label_defs.append(("Needs Review", "#FFF3E0", "#E65100"))
+    elif not label_defs:
+        label_defs.append(("Needs Review", "#F5F5F5", "#616161"))
+
+    labels = "".join(
+        f'<span style="display:inline-block;background:{bg};color:{fg};'
+        'padding:3px 9px;border-radius:12px;font-size:11px;font-weight:800;'
+        f'margin:0 6px 6px 0;">{label}</span>'
+        for label, bg, fg in label_defs
+    )
+    return f'<p style="margin:0 0 10px;">{labels}</p>'
+
+
+def _trust_summary_html(pattern: dict) -> str:
+    summary = pattern.get("reality_check_summary")
+    if not summary:
+        return ""
+    risk_score = pattern.get("ai_risk_score")
+    risk_label = (pattern.get("ai_risk_label") or "unreviewed").replace("_", " ").title()
+    score_text = f" - Risk {risk_score}/10" if risk_score is not None else ""
+    return (
+        '<table cellpadding="0" cellspacing="0" style="margin:0 0 12px;width:100%;">'
+        '<tr><td style="background:#FFFDF5;border:1px solid #F1D99A;'
+        'border-radius:8px;padding:10px 12px;">'
+        '<p style="margin:0 0 4px;font-size:13px;font-weight:800;color:#7B5800;">'
+        f'Pattern Trust: {risk_label}{score_text}</p>'
+        f'<p style="margin:0;font-size:12px;line-height:1.55;color:#4B4038;">{summary}</p>'
+        '</td></tr></table>'
+    )
+
+
 def _guided_tutorial_html(pattern: dict, action_text: str) -> str:
     skill = _compact_value(pattern.get("skill_level", ""), "beginner").capitalize()
     project = _compact_value(pattern.get("project_type", ""), "project").replace("_", " ").title()
@@ -586,6 +633,8 @@ def _found_pattern_block(p: dict, idx: int, user: dict) -> str:
         <a href="{p.get('url','#')}" style="color:#6A1B9A;text-decoration:none;">
           {p.get("title","")}</a>
       </h3>
+      {_trust_label_html(p)}
+      {_trust_summary_html(p)}
       {_beginner_confidence_html(p, user)}
       {guided_tutorial}
       {pattern_button}
@@ -671,6 +720,8 @@ def _original_pattern_block(p: dict, idx: int, user: dict) -> str:
       <p style="margin:0 0 12px;font-size:13px;color:#A1670A;font-style:italic;">
         {p.get("tagline","")}
       </p>
+      {_trust_label_html(p)}
+      {_trust_summary_html(p)}
       {_beginner_confidence_html(p, user)}
       {guided_tutorial}
       {pattern_button}

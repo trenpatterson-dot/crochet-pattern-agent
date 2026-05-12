@@ -39,7 +39,7 @@ def main() -> int:
 
         import database
         from agents import competition_intelligence_agent
-        from agents import link_builder, link_validator
+        from agents import link_builder, link_validator, pattern_trust
         import mailer
         import orchestrator
         import scheduler
@@ -457,6 +457,32 @@ def main() -> int:
         assert "Price varies by retailer" in rendered_html, "email HTML should show retailer-safe pricing text"
         assert "Beginner Confidence" in rendered_html, "email HTML should include beginner confidence score"
         assert "Beginner Confidence: High" in rendered_html, "email HTML should render a confidence level"
+        trusted = pattern_trust.apply_trust_metadata(final_checked)
+        assert "ai_risk_score" in trusted[0], "trust layer should add ai_risk_score"
+        assert "review_status" in trusted[0], "trust layer should add review_status"
+        assert trusted[0]["verified"] is False, "trust layer should not invent verified claims"
+        risky = pattern_trust.assess_pattern(
+            {
+                "title": "Cute Beginner Amigurumi",
+                "source_site": "pinterest",
+                "url": "",
+                "skill_level": "beginner",
+                "project_type": "amigurumi",
+                "snippet": "Anyone can make this free pattern in picture. Use any yarn and follow the photo.",
+                "materials": [],
+            }
+        )
+        assert risky["ai_risk_label"] == "likely_ai_generated", (
+            "missing attribution and infographic-style wording should be high risk"
+        )
+        assert risky["review_status"] == "needs_review", "high-risk patterns should require review"
+        review_queue_path = temp_root / "pattern_review_queue.jsonl"
+        queue_meta = pattern_trust.queue_review_items([risky], user, queue_path=review_queue_path)
+        assert queue_meta["queued_count"] == 1, "risky pattern should be added to review queue"
+        assert review_queue_path.exists(), "review queue JSONL should be written locally"
+        trusted_html = mailer.build_html(user, trusted)
+        assert "Pattern Trust:" in trusted_html, "email HTML should render pattern trust summary"
+        assert "Needs Review" in trusted_html, "email HTML should render a visible trust label"
         assert "<strong>Why:</strong>" in rendered_html, "email HTML should include confidence reason text"
         assert "Likely beginner-friendly" in rendered_html, (
             "confidence reason should use cautious beginner-friendly wording"
