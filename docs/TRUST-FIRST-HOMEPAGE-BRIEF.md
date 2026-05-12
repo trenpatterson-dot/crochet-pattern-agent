@@ -1,98 +1,215 @@
-# Trust-First Homepage Content Brief
+# Trust-First Homepage Brief
 
 ## 1. Brand Positioning
-Find crochet patterns you can actually trust.
+
+Core message: Find crochet patterns you can actually trust.
+
+Crochet Pattern Finder is a warm, beginner-friendly crochet discovery site focused on helping makers avoid confusing, low-quality, or likely AI-generated crochet pattern spam. The brand should feel useful, calm, and human, not like a generic AI tool or a technical dashboard.
+
+The homepage should position the project as a trusted discovery layer for crochet patterns. It can use AI-assisted discovery and scoring, but the public-facing experience should emphasize human judgment, review aids, clear signals, and beginner support.
+
+Do not claim that patterns are verified, human-tested, or community-reviewed unless there is real evidence for that specific pattern. Trust language should explain signals and review status, not overpromise certainty.
 
 ## 2. Audience
-**Primary users:**
-- Beginner crocheters
-- Frustrated Pinterest users
-- Crocheters looking for clear tutorials
-- People who want realistic pattern expectations
+
+Primary audience:
+
+- Beginner crocheters who are tired of "easy" patterns that are not actually easy.
+- Makers who have wasted time on unclear, incomplete, or fake-looking patterns.
+- Crocheters who want help choosing patterns before spending yarn, time, or money.
+- People who want cozy project ideas without digging through spammy search results.
+
+Beginner pain points to keep visible:
+
+- Splitting yarn
+- Magic ring frustration
+- Losing stitches
+- Tension issues
+- Pattern language confusion
+- Hand pain
+- Yarn selection confusion
+- Left-handed frustration
+- Finishing and sewing confusion
+- Project overwhelm
 
 ## 3. Tone / Voice
-**Use:**
-- Warm
-- Honest
-- Helpful
-- Non-corporate
-- Non-hype
-- Human
-- Beginner-friendly
 
-**Avoid:**
-- Fake urgency
-- Overpromising
-- Anti-AI ranting
-- Corporate SaaS language
-- “Perfect pattern” claims
+The voice should be warm, practical, and reassuring without sounding corporate or exaggerated.
+
+Use:
+
+- Clear, plain language
+- Helpful reality checks
+- Human-first wording
+- Beginner-friendly explanations
+- Calm confidence
+- Specific pattern-quality signals
+
+Avoid:
+
+- Hype
+- Fake certainty
+- Overly technical AI language
+- Dark cybersecurity styling
+- Neon SaaS language
+- Claims that every pattern is verified or human-tested
+- Fear-heavy messaging
+
+Good tone examples:
+
+- "Find crochet patterns you can actually trust."
+- "Skip the fake pattern spam."
+- "See trust signals before you start."
+- "Helpful checks for confusing steps, missing details, and likely AI-generated pattern issues."
+- "AI-assisted discovery, human-focused review."
 
 ## 4. Homepage Copy Options
 
-**Headline Options:**
-1. Find crochet patterns you can actually trust.
-2. Crochet patterns without the guesswork.
-3. Discover patterns that actually work.
-4. Real patterns for real crocheters.
-5. Stop guessing. Start crocheting.
+Hero headline options:
 
-**Subheading Options:**
-1. We review patterns so you don't have to waste yarn on confusing instructions.
-2. Hand-checked patterns with clear stitch counts and realistic difficulty levels.
-3. Skip the fake AI patterns and broken links. Find your next project here.
-4. Honest reviews, clear tutorials, and patterns that make sense for beginners.
-5. Because your time and yarn are too valuable for bad patterns.
+- Find crochet patterns you can actually trust.
+- Skip the fake pattern spam.
+- Discover crochet patterns with clearer trust signals.
+- Better pattern picks for beginners who want fewer surprises.
 
-**CTA Button Text Options:**
-1. Browse Trusted Patterns
-2. Find Your Next Project
-3. Explore Reviewed Patterns
-4. Start Crocheting
-5. See Beginner Patterns
+Hero subheading options:
+
+- Discover beginner-friendly crochet patterns with source notes, trust labels, and helpful reality checks before you start.
+- Crochet Pattern Finder helps you spot clearer instructions, reliable sources, and patterns that may need a closer look.
+- Get pattern picks with beginner-friendly notes, materials guidance, and trust signals that help you avoid low-quality pattern spam.
+
+Primary CTA options:
+
+- Find Reliable Patterns
+- Get Trusted Pattern Picks
+- Start Finding Better Patterns
+
+Secondary CTA options:
+
+- See Trust Labels
+- How Trust Checks Work
+- View Beginner Signals
+
+Short supporting copy:
+
+- No physical kits. Just pattern discovery, materials guidance, and review notes to help you start with less guesswork.
+- Built using real crochet feedback.
+- Designed for beginners who want clearer steps, better sources, and fewer frustrating surprises.
 
 ## 5. Trust Label Microcopy
-- **Verified:** We have confirmed this pattern is complete, accurate, and created by a real human.
-- **Human Tested:** A real crocheter has completed this pattern and verified the instructions.
-- **Community Reviewed:** Other crocheters have tried this pattern and shared their honest feedback.
-- **Needs Review:** We haven't fully tested this pattern yet. Proceed with caution.
-- **Questionable:** This pattern has reported issues, missing steps, or unclear instructions.
-- **Likely AI Generated:** This pattern shows signs of being AI-generated and may contain impossible stitches or structural flaws.
+
+Trust labels should be presented as review aids, not final truth claims.
+
+Verified:
+
+- Source and pattern details look clear enough for normal review.
+- Use only when the source has been checked and the claim can be supported.
+
+Human Tested:
+
+- A real person has tested or confirmed the pattern experience.
+- Do not use unless there is direct evidence of human testing.
+
+Community Reviewed:
+
+- Public comments, ratings, or community notes provide useful quality signals.
+- Should not imply formal verification.
+
+Needs Review:
+
+- Some details need a closer look before recommending this pattern.
+- Useful for incomplete materials, unclear steps, missing gauge, or uncertain source quality.
+
+Questionable:
+
+- This pattern has warning signs that may frustrate beginners.
+- Use for unclear instructions, missing photos, inconsistent details, or weak source context.
+
+Likely AI Generated:
+
+- This pattern shows signals that may indicate AI-generated or low-quality generated content.
+- Phrase carefully. Avoid presenting this as a final accusation unless there is strong evidence.
 
 ## 6. Reality Check Copy Examples
-1. **Reality Check:** The color changes in row 15 are tricky. You'll need to carry your yarn carefully to avoid a messy back.
-2. **Reality Check:** This plush yarn pattern is cute, but the stitches are very hard to see. Not recommended for absolute beginners.
-3. **Reality Check:** The stitch counts are missing at the end of rounds 4-8. You'll need to count carefully as you go.
-4. **Reality Check:** Requires a lot of sewing! There are 12 separate pieces to attach at the end.
-5. **Reality Check:** The written instructions are clear, but there are no photos or video tutorials to help with the tricky parts.
-6. **Reality Check:** The gauge is crucial for this wearable. Do not skip the gauge swatch or it won't fit.
-7. **Reality Check:** The pattern says "beginner," but the tension required for the amigurumi shaping is more intermediate.
-8. **Reality Check:** Beautiful design, but the creator doesn't explain how to do the special cluster stitch. You'll need to look up a separate tutorial.
-9. **Reality Check:** The yarn recommended is discontinued. We suggest substituting with a standard worsted weight cotton.
-10. **Reality Check:** The pattern works up quickly, but the finishing border is very tedious and takes longer than the main piece.
+
+Reality checks should feel helpful, not alarming. They should explain what to confirm before starting.
+
+Helpful examples:
+
+- Reality check: Confirm yarn weight and finished size before starting.
+- Reality check: This looks beginner-friendly, but the sewing steps may need extra patience.
+- Reality check: Photos and stitch counts are visible, but gauge details should be checked.
+- Reality check: The instructions look clear, but left-handed makers may want a matching tutorial.
+- Reality check: This pattern may be easier after practicing the magic ring first.
+- Reality check: Source details are limited, so review the full pattern page before buying or downloading.
+
+Flag explanation examples:
+
+- Why this was flagged: Missing gauge and unclear finished size.
+- Why this was flagged: Assembly photos are limited, which can make finishing harder.
+- Why this was flagged: The source page has sparse creator details.
+- Why this was flagged: Instructions appear generic and may need manual review.
+- Why this was flagged: Beginner label does not clearly match the required shaping or sewing steps.
 
 ## 7. Beginner Filter Copy
-- **Beginner Friendly:** Simple stitches, clear instructions, and easy shaping.
-- **Low Sewing:** Minimal pieces to attach. Most of the project is crocheted in one piece.
-- **Tutorial Included:** Comes with step-by-step photos or a video guide.
-- **Plush Yarn Friendly:** Designed specifically for chunky, fluffy yarn where stitches are hard to see.
-- **Low Frustration:** Tested by beginners and proven to be easy to follow without tearing out stitches.
-- **Human Reviewed:** Checked by a real person to ensure the pattern makes sense.
-- **Clear Stitch Counts:** Every row or round tells you exactly how many stitches you should have.
-- **Minimal Color Changes:** Uses only one or two colors, so you don't have to weave in a million ends.
 
-## 8. Footer Trust Note Options
-1. Trust scores are review aids, not final truth claims. Human review still matters.
-2. Our trust labels are here to guide you, but they aren't a guarantee. Always use your best judgment.
-3. We do our best to verify patterns, but trust scores are just a tool. Your own experience is what counts.
+Filters and visual chips should feel like helpful discovery cues, not strict guarantees.
 
-## 9. Social Content Ideas (Facebook/Reels)
-1. **Spotting Fake AI Patterns:** 3 red flags that a crochet pattern was written by a robot (and why it won't work).
-2. **Pinterest Pattern Frustration:** That feeling when you click a beautiful Pinterest pin and it leads to a dead link or a spam site.
-3. **Beginner Crochet Mistakes:** Why your amigurumi is inside out (and how to fix it).
-4. **Why Creator Attribution Matters:** Support real artists! How to find the original creator of a stolen pattern.
-5. **How to Choose Reliable Patterns:** What to look for before you buy or start a new crochet project.
-6. **The "Perfect Pattern" Myth:** Why we don't promise perfection, just honesty.
-7. **Plush Yarn Reality Check:** The truth about crocheting with blanket yarn (it's harder than it looks!).
-8. **Sewing Hate:** Love crocheting, hate sewing? Here are 5 low-sew patterns you'll actually finish.
-9. **Stitch Count Confessions:** Why missing stitch counts are the ultimate pattern dealbreaker.
-10. **Behind the Scenes:** How we review and test patterns to make sure they actually work.
+Recommended chips:
+
+- Beginner Friendly
+- Tutorial Included
+- Low Sewing
+- Low Frustration
+- Human Reviewed
+
+Additional optional chips:
+
+- Plush Yarn Friendly
+- Left-Hand Helpful
+- Magic Ring Alternative
+- Clear Photos
+- Simple Shape
+- Low Finish Work
+- Materials Clear
+
+Microcopy:
+
+- Use these signals to find patterns that may be easier to start.
+- Beginner filters highlight helpful signs, but always review the full pattern before starting.
+- Pick the kind of project support you want most.
+
+## 8. Footer Trust Note
+
+Primary footer note:
+
+Trust scores are review aids, not final truth claims. Human review still matters.
+
+Alternate footer notes:
+
+- Trust labels help you review patterns faster, but they do not replace your own judgment.
+- Pattern quality can change by source, update, and maker experience. Review the full pattern before starting.
+- We use trust signals to reduce confusion, not to guarantee that every pattern is perfect.
+
+## 9. Social Content Ideas
+
+Short post ideas:
+
+- "Not every 'easy crochet pattern' is actually beginner-friendly. Look for clear photos, stitch counts, materials, and finishing steps before you start."
+- "A good beginner crochet pattern should reduce guesswork, not create more of it."
+- "Before buying or saving a crochet pattern, check for finished size, yarn weight, gauge, photos, and clear assembly notes."
+- "Fake-looking crochet pattern spam is frustrating. Trust signals help makers slow down and choose patterns with fewer surprises."
+- "Beginner-friendly does not mean boring. It means clear, realistic, and easier to finish."
+
+Carousel ideas:
+
+- 5 signs a crochet pattern may frustrate beginners
+- What to check before starting an amigurumi pattern
+- Trust labels we use when reviewing crochet patterns
+- Why "Needs Review" is not a failure
+- How to spot a clearer beginner crochet pattern
+
+Email or newsletter idea:
+
+- Subject: Before you start that crochet pattern, check this first
+- Angle: A short checklist for yarn weight, gauge, photos, assembly steps, and source quality.
