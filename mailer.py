@@ -12,7 +12,7 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parseaddr
-from urllib.parse import urlparse
+from urllib.parse import quote_plus, urlparse
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -331,6 +331,61 @@ def _email_button(label: str, url: str, *, bg: str, margin: str = "0 0 8px") -> 
     )
 
 
+def _safe_customer_url(url: str) -> str:
+    candidate = (url or "").strip()
+    if not candidate:
+        return ""
+    lowered = candidate.lower()
+    if lowered in {"#", "javascript:void(0)", "javascript:;", "javascript:void(0);"}:
+        return ""
+    if lowered.startswith("#") or lowered.startswith("javascript:"):
+        return ""
+
+    parsed = urlparse(candidate)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+
+    app_base = _email_base_url()
+    if app_base and candidate.rstrip("/") == app_base.rstrip("/"):
+        return ""
+    return candidate
+
+
+def _pattern_cta_url(pattern: dict) -> str:
+    return _safe_customer_url(
+        pattern.get("pattern_cta_url")
+        or pattern.get("url")
+        or pattern.get("pattern_search_url")
+        or ""
+    )
+
+
+def _youtube_search_url(pattern: dict) -> str:
+    title = _compact_value(pattern.get("title", ""), "crochet pattern")
+    query = quote_plus(f"crochet {title} tutorial")
+    return f"https://www.youtube.com/results?search_query={query}"
+
+
+def _youtube_search_button(pattern: dict) -> str:
+    return _email_button(
+        "Search YouTube Tutorial",
+        _youtube_search_url(pattern),
+        bg="#C2410C",
+        margin="0 0 14px",
+    )
+
+
+def _full_pattern_included_note() -> str:
+    return (
+        '<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;">'
+        '<tr><td style="background:#FFF8E1;border:1px solid #F4D48A;'
+        'border-radius:8px;padding:10px 12px;">'
+        '<p style="margin:0;font-size:13px;font-weight:800;color:#7B5800;">'
+        'Full pattern included below</p>'
+        '</td></tr></table>'
+    )
+
+
 def _compact_value(value: str, fallback: str) -> str:
     cleaned = (value or "").strip()
     return cleaned if cleaned else fallback
@@ -499,50 +554,11 @@ def _beginner_confidence_html(pattern: dict, user: dict) -> str:
 
 
 def _trust_label_html(pattern: dict) -> str:
-    label_defs = []
-    if pattern.get("verified"):
-        label_defs.append(("Verified", "#E8F5E9", "#2E7D32"))
-    if pattern.get("human_tested"):
-        label_defs.append(("Human Tested", "#E3F2FD", "#1565C0"))
-    if pattern.get("review_status") == "community_reviewed":
-        label_defs.append(("Community Reviewed", "#E0F2F1", "#00695C"))
-
-    risk_label = pattern.get("ai_risk_label")
-    review_status = pattern.get("review_status")
-    if risk_label == "likely_ai_generated":
-        label_defs.append(("Likely AI Generated", "#FCE4EC", "#AD1457"))
-    elif risk_label == "questionable":
-        label_defs.append(("Questionable", "#FFF8E1", "#8A5A00"))
-    elif review_status == "needs_review":
-        label_defs.append(("Needs Review", "#FFF3E0", "#E65100"))
-    elif not label_defs:
-        label_defs.append(("Needs Review", "#F5F5F5", "#616161"))
-
-    labels = "".join(
-        f'<span style="display:inline-block;background:{bg};color:{fg};'
-        'padding:3px 9px;border-radius:12px;font-size:11px;font-weight:800;'
-        f'margin:0 6px 6px 0;">{label}</span>'
-        for label, bg, fg in label_defs
-    )
-    return f'<p style="margin:0 0 10px;">{labels}</p>'
+    return ""
 
 
 def _trust_summary_html(pattern: dict) -> str:
-    summary = pattern.get("reality_check_summary")
-    if not summary:
-        return ""
-    risk_score = pattern.get("ai_risk_score")
-    risk_label = (pattern.get("ai_risk_label") or "unreviewed").replace("_", " ").title()
-    score_text = f" - Risk {risk_score}/10" if risk_score is not None else ""
-    return (
-        '<table cellpadding="0" cellspacing="0" style="margin:0 0 12px;width:100%;">'
-        '<tr><td style="background:#FFFDF5;border:1px solid #F1D99A;'
-        'border-radius:8px;padding:10px 12px;">'
-        '<p style="margin:0 0 4px;font-size:13px;font-weight:800;color:#7B5800;">'
-        f'Pattern Trust: {risk_label}{score_text}</p>'
-        f'<p style="margin:0;font-size:12px;line-height:1.55;color:#4B4038;">{summary}</p>'
-        '</td></tr></table>'
-    )
+    return ""
 
 
 def _guided_tutorial_html(pattern: dict, action_text: str) -> str:
@@ -603,14 +619,20 @@ def _found_pattern_block(p: dict, idx: int, user: dict) -> str:
     if video.get("url"):
         video_button = _email_button(
             "Watch Tutorial",
-            video["url"],
+            _safe_customer_url(video["url"]),
             bg="#D84315",
             margin="0 0 14px",
         )
 
-    pattern_cta_url = p.get("pattern_cta_url") or p.get("url") or ""
+    pattern_cta_url = _pattern_cta_url(p)
     pattern_button = _email_button("View Full Pattern", pattern_cta_url, bg="#6A1B9A")
     guided_tutorial = _guided_tutorial_html(p, "Open the full pattern page.")
+    title = p.get("title", "")
+    title_html = (
+        f'<a href="{pattern_cta_url}" style="color:#6A1B9A;text-decoration:none;">{title}</a>'
+        if pattern_cta_url
+        else title
+    )
 
     return f"""
 <tr><td style="padding:0 32px 24px;">
@@ -630,14 +652,14 @@ def _found_pattern_block(p: dict, idx: int, user: dict) -> str:
     </tr>
     <tr><td style="padding:16px 18px;">
       <h3 style="margin:0 0 8px;font-size:17px;">
-        <a href="{p.get('url','#')}" style="color:#6A1B9A;text-decoration:none;">
-          {p.get("title","")}</a>
+        {title_html}
       </h3>
       {_trust_label_html(p)}
       {_trust_summary_html(p)}
       {_beginner_confidence_html(p, user)}
       {guided_tutorial}
       {pattern_button}
+      {_youtube_search_button(p)}
       {video_button}
       {f'<p style="margin:0 0 12px;font-size:13px;color:#666;line-height:1.7;">{description}</p>' if description else ''}
       <p style="margin:0 0 12px;font-size:12px;color:#888;">
@@ -683,17 +705,11 @@ def _original_pattern_block(p: dict, idx: int, user: dict) -> str:
     if video.get("url"):
         tutorial_html = _email_button(
             "Watch Tutorial",
-            video["url"],
+            _safe_customer_url(video["url"]),
             bg="#D84315",
             margin="0 0 14px",
         )
     instructions_anchor = f"pattern-{idx}-instructions"
-    pattern_button = _email_button(
-        "View Full Pattern",
-        f"#{instructions_anchor}",
-        bg="#F57F17",
-        margin="0 0 8px",
-    )
     guided_tutorial = _guided_tutorial_html(p, "Jump to the full instructions below.")
 
     return f"""
@@ -724,7 +740,8 @@ def _original_pattern_block(p: dict, idx: int, user: dict) -> str:
       {_trust_summary_html(p)}
       {_beginner_confidence_html(p, user)}
       {guided_tutorial}
-      {pattern_button}
+      {_full_pattern_included_note()}
+      {_youtube_search_button(p)}
       {tutorial_html}
       {_tutorial_guidance_html(p)}
       <table cellpadding="0" cellspacing="0" style="margin:0 0 14px;width:100%;font-size:12px;color:#5F5366;">

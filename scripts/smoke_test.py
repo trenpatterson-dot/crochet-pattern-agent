@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -481,8 +482,25 @@ def main() -> int:
         assert queue_meta["queued_count"] == 1, "risky pattern should be added to review queue"
         assert review_queue_path.exists(), "review queue JSONL should be written locally"
         trusted_html = mailer.build_html(user, trusted)
-        assert "Pattern Trust:" in trusted_html, "email HTML should render pattern trust summary"
-        assert "Needs Review" in trusted_html, "email HTML should render a visible trust label"
+        assert "Pattern Trust:" not in trusted_html, "email HTML should not render internal pattern trust labels"
+        assert "Needs Review" not in trusted_html, "email HTML should not render internal review labels"
+        assert "Risk" not in rendered_html, "original-pattern email HTML should not render internal risk scores"
+        assert "Pattern Trust" not in rendered_html, (
+            "original-pattern email HTML should not render internal QA trust language"
+        )
+        assert "Full pattern included below" in rendered_html, (
+            "original-pattern email HTML should show a non-clickable full-pattern note"
+        )
+        assert "View Full Pattern</a>" not in rendered_html, (
+            "original StitchFlow patterns should not render fake View Full Pattern buttons"
+        )
+        assert 'href="#' not in rendered_html, "email HTML should not render broken internal anchor CTAs"
+        assert 'href=""' not in rendered_html, "email HTML should not render empty CTA links"
+        assert "javascript:void(0)" not in rendered_html, "email HTML should not render javascript placeholder CTAs"
+        assert "Search YouTube Tutorial" in rendered_html, "email HTML should render a YouTube tutorial search CTA"
+        assert "youtube.com/results?search_query=crochet+Smoke+Test+Pattern+tutorial" in rendered_html, (
+            "email HTML should link the tutorial CTA to a YouTube search results page"
+        )
         assert "<strong>Why:</strong>" in rendered_html, "email HTML should include confidence reason text"
         assert "Likely beginner-friendly" in rendered_html, (
             "confidence reason should use cautious beginner-friendly wording"
@@ -509,8 +527,9 @@ def main() -> int:
             "guided tutorial should summarize materials in beginner-friendly language"
         )
         assert "Skill: Beginner blankets." in rendered_html, "guided tutorial should summarize skill level"
-        assert "Search Tutorial" not in rendered_html, "email HTML should not show tutorial fallback CTA"
-        assert "Tutorial</a>" not in rendered_html, "email HTML should not show tutorial CTA when link is invalid"
+        assert "Watch Tutorial</a>" not in rendered_html, (
+            "email HTML should not show direct tutorial CTA when the video link is invalid"
+        )
         search_fallback_html = mailer.build_html(
             user,
             [
@@ -530,7 +549,19 @@ def main() -> int:
                 }
             ],
         )
+        cta_hrefs = re.findall(r'<a href="([^"]+)"[^>]*display:block', search_fallback_html)
+        assert cta_hrefs, "fallback email HTML should render clickable CTA links"
+        forbidden_cta_urls = {"", "#", "javascript:void(0)", "https://crochet.example.com"}
+        assert not any(href in forbidden_cta_urls or href.startswith("#") for href in cta_hrefs), (
+            "email CTA links should not use empty, anchor, javascript, or app-homepage URLs"
+        )
         assert "View Full Pattern</a>" in search_fallback_html, "email HTML should render the primary pattern CTA"
+        assert "Search YouTube Tutorial" in search_fallback_html, (
+            "fallback cards should render a clickable YouTube tutorial search CTA"
+        )
+        assert "youtube.com/results?search_query=crochet+Fallback+Pattern+tutorial" in search_fallback_html, (
+            "fallback tutorial CTA should link to YouTube search results"
+        )
         assert "Start Here" in search_fallback_html, "fallback cards should include quick-start guidance"
         assert "How to Make It" in search_fallback_html, "fallback cards should include guided tutorial steps"
         assert "https://www.google.com/search?q=fallback" in search_fallback_html, (
