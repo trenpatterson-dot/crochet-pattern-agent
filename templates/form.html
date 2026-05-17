@@ -20,7 +20,7 @@
     .page {
       width: min(1120px, 100%);
       margin: 0 auto;
-      padding: 34px 20px 56px;
+      padding: 34px 20px 64px;
     }
 
     .hero {
@@ -29,10 +29,10 @@
       grid-template-areas:
         "copy signup"
         "visual signup";
-      gap: 32px;
+      gap: 34px;
       align-items: start;
       min-height: auto;
-      padding: 26px 0 18px;
+      padding: 28px 0 20px;
     }
 
     .soft-panel {
@@ -78,8 +78,8 @@
     .hero-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 28px;
+      gap: 14px;
+      margin-top: 30px;
     }
 
     .trust-line {
@@ -106,18 +106,26 @@
       font-weight: 760;
       text-align: center;
       cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.15s, border-color 0.15s;
     }
 
     .button-link {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0 22px;
+      padding: 0 24px;
       background: #3f6b50;
       color: #fff;
       text-decoration: none;
       box-shadow: 0 12px 22px rgba(63, 107, 80, 0.16);
+    }
+
+    .hero-actions .button-link:first-child {
+      min-height: 60px;
+      padding: 0 30px;
+      background: #315a42;
+      font-size: 17px;
+      box-shadow: 0 16px 30px rgba(49, 90, 66, 0.24);
     }
 
     .button-link.secondary {
@@ -130,6 +138,13 @@
     .button-link:hover,
     .submit-btn:hover {
       transform: translateY(-1px);
+    }
+
+    .button-link:focus-visible,
+    .submit-btn:focus-visible,
+    .skill-card:focus-within {
+      outline: 3px solid rgba(49, 90, 66, 0.34);
+      outline-offset: 3px;
     }
 
     .value-list {
@@ -190,12 +205,14 @@
 
     .signup-card {
       grid-area: signup;
-      padding: 28px;
+      padding: 32px;
+      border-color: #dfcbb1;
+      box-shadow: 0 20px 42px rgba(68, 52, 30, 0.13);
     }
 
     .form-intro {
       display: inline-flex;
-      margin-bottom: 10px;
+      margin-bottom: 9px;
       color: #3f6b50;
       font-size: 15px;
       font-weight: 760;
@@ -203,15 +220,16 @@
 
     .signup-card h2 {
       color: #2f2a22;
-      font-size: 24px;
+      font-size: 26px;
       line-height: 1.2;
       margin-bottom: 8px;
+      font-weight: 780;
     }
 
     .form-note {
       color: #6b6258;
-      font-size: 14px;
-      margin-bottom: 22px;
+      font-size: 15px;
+      margin-bottom: 24px;
     }
 
     .error-msg {
@@ -226,7 +244,7 @@
 
     form {
       display: grid;
-      gap: 18px;
+      gap: 17px;
     }
 
     .field-label {
@@ -243,21 +261,23 @@
       width: 100%;
       min-height: 52px;
       padding: 12px 14px;
-      border: 1.5px solid #d7c8b7;
+      border: 1.5px solid #cbb9a4;
       border-radius: 12px;
       background: #fffdf9;
       color: #2f2a22;
       font: inherit;
       font-size: 16px;
-      transition: border-color 0.2s, box-shadow 0.2s;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
     }
 
     input[type="text"]:focus,
     input[type="email"]:focus,
     select:focus {
       outline: none;
-      border-color: #3f6b50;
-      box-shadow: 0 0 0 4px rgba(63, 107, 80, 0.12);
+      border-color: #315a42;
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(49, 90, 66, 0.16);
     }
 
     .skill-group {
@@ -270,7 +290,7 @@
       display: block;
       min-height: 72px;
       padding: 14px;
-      border: 1.5px solid #d7c8b7;
+      border: 1.5px solid #cbb9a4;
       border-radius: 12px;
       background: #fffdf9;
       cursor: pointer;
@@ -293,9 +313,10 @@
       width: 100%;
       margin-top: 4px;
       border: none;
-      background: #3f6b50;
+      background: #315a42;
       color: #fff;
-      box-shadow: 0 12px 24px rgba(63, 107, 80, 0.18);
+      font-size: 17px;
+      box-shadow: 0 16px 30px rgba(49, 90, 66, 0.24);
     }
 
     .privacy-note {
@@ -305,12 +326,12 @@
     }
 
     .section {
-      margin-top: 32px;
+      margin-top: 42px;
     }
 
     .section-header {
       max-width: 780px;
-      margin-bottom: 18px;
+      margin-bottom: 20px;
     }
 
     .section-kicker {
@@ -332,6 +353,7 @@
     }
 
     .section-header p {
+      max-width: 680px;
       color: #5d5449;
       font-size: 16px;
     }
@@ -350,6 +372,7 @@
       border-radius: 14px;
       background: #fff;
       box-shadow: 0 14px 28px rgba(68, 52, 30, 0.08);
+      transition: transform 0.16s, box-shadow 0.16s, border-color 0.16s;
     }
 
     .example-card img {
@@ -357,6 +380,14 @@
       width: 100%;
       aspect-ratio: 4 / 3;
       object-fit: cover;
+      background: #f7efe3;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .example-card:hover {
+        border-color: #e2ceb2;
+        box-shadow: 0 18px 34px rgba(68, 52, 30, 0.11);
+      }
     }
 
     .example-caption {
@@ -394,7 +425,7 @@
     .card-meta,
     .card-summary {
       padding: 0 16px;
-      color: #6b6258;
+      color: #5f5548;
       font-size: 13px;
     }
 
@@ -427,7 +458,7 @@
     }
 
     .proof-line {
-      margin-top: 22px;
+      margin-top: 28px;
       padding: 14px 18px;
       border: 1px solid #ead9c2;
       border-radius: 999px;
@@ -440,7 +471,7 @@
 
     .chip-section,
     .trust-section {
-      padding: 30px;
+      padding: 32px;
     }
 
     .trust-section {
@@ -481,7 +512,7 @@
     .trust-badge.ai-risk { border-color: #c89a91; background: #fff0ee; color: #8f3e33; }
 
     .outcome-preview {
-      padding: 30px;
+      padding: 32px;
       background: #f3efe7;
       border-radius: 14px;
     }
@@ -522,7 +553,7 @@
 
     .clarity,
     .reality-section {
-      padding: 30px;
+      padding: 32px;
       background: #f3efe7;
       border-radius: 14px;
     }
@@ -560,14 +591,14 @@
     }
 
     @media (max-width: 820px) {
-      .page { padding: 16px 14px 36px; }
+      .page { padding: 16px 14px 42px; }
       .hero {
         grid-template-columns: 1fr;
         grid-template-areas:
           "copy"
           "signup"
           "visual";
-        gap: 18px;
+        gap: 16px;
         align-items: start;
         min-height: auto;
         padding-top: 12px;
@@ -576,10 +607,14 @@
       .eyebrow { margin-bottom: 12px; }
       h1 { font-size: clamp(32px, 10vw, 44px); line-height: 1.05; }
       .subtext { margin-top: 14px; font-size: 17px; }
-      .hero-actions { margin-top: 18px; }
+      .hero-actions { margin-top: 18px; gap: 10px; }
       .kit-note { margin-top: 12px; font-size: 15px; }
       .button-link { width: 100%; }
-      .signup-card { padding: 22px 18px; }
+      .hero-actions .button-link:first-child { min-height: 58px; font-size: 16px; }
+      .signup-card { padding: 24px 18px; }
+      .signup-card h2 { font-size: 24px; }
+      .form-note { font-size: 15px; margin-bottom: 20px; }
+      form { gap: 16px; }
       .value-list {
         margin-top: 18px;
         gap: 8px;
@@ -591,7 +626,7 @@
       }
       .hero-visual img { aspect-ratio: 16 / 9; }
       .hero-visual figcaption { padding: 9px 11px 10px; font-size: 13px; }
-      .section { margin-top: 24px; }
+      .section { margin-top: 30px; }
       .section-header { margin-bottom: 14px; }
       .section-header h2,
       .outcome-preview h2,
@@ -631,7 +666,7 @@
         <p class="subtext">Skip the fake pattern spam and discover beginner-friendly patterns with clear trust signals, source notes, and reality checks.</p>
 
         <div class="hero-actions">
-          <a class="button-link" href="#signup">Find Reliable Patterns</a>
+          <a class="button-link" href="#signup">Get My First Pattern</a>
           <a class="button-link secondary" href="#trust-labels">See Trust Labels</a>
         </div>
         <p class="trust-line">Takes 10 seconds. No spam.</p>
@@ -705,7 +740,7 @@
             </select>
           </div>
 
-          <button type="submit" class="submit-btn">Find Reliable Patterns</button>
+          <button type="submit" class="submit-btn">Get My First Pattern</button>
           <p class="privacy-note">Takes 10 seconds. No spam.</p>
         </form>
       </div>
