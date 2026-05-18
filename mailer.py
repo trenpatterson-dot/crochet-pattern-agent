@@ -391,6 +391,123 @@ def _compact_value(value: str, fallback: str) -> str:
     return cleaned if cleaned else fallback
 
 
+def _clean_project_label(value: str) -> str:
+    cleaned = (value or "any").strip().replace("_", " ").title()
+    return cleaned or "Any"
+
+
+def _clean_budget_text(value: str) -> str:
+    cleaned = (value or "").strip()
+    if not cleaned:
+        return ""
+    if cleaned.lower() in {"no limit", "none", "any", "no preference"}:
+        return "no set budget"
+    return cleaned
+
+
+def _fallback_original_materials(project_type: str, yarn_weight: str) -> list[dict]:
+    yarn = _compact_value(yarn_weight, "worsted").lower()
+    project = (project_type or "any").lower()
+    def item(name: str, quantity: str, query: str) -> dict:
+        return {
+            "name": name,
+            "quantity": quantity,
+            "material_cta_label": "Shop Materials",
+            "material_cta_url": f"https://www.amazon.com/s?k={quote_plus(query)}",
+        }
+
+    materials = [
+        item(f"{yarn.capitalize()} weight yarn", "1-2 skeins", f"{yarn} weight crochet yarn"),
+        item("Crochet hook matched to your yarn label", "1", "beginner crochet hook set"),
+        item("Yarn needle", "1", "blunt tip yarn needle"),
+        item("Small scissors", "1", "small craft scissors"),
+    ]
+    if project == "amigurumi":
+        materials.append(item("Polyester stuffing", "small handful", "polyester fiberfill stuffing"))
+    return materials
+
+
+def _fallback_original_instructions(title: str, project_type: str, skill: str) -> str:
+    project = (project_type or "any").lower()
+    if project == "amigurumi":
+        return (
+            "SETUP:\n"
+            "Make a magic ring and work 6 sc into the ring.\n"
+            "BODY:\n"
+            "Increase evenly until the piece is wide enough for your small shape.\n"
+            "Work even rounds until the body is the height you want.\n"
+            "FINISHING:\n"
+            "Stuff lightly, decrease evenly, close the opening, and weave in ends."
+        )
+    if project in {"blankets", "baby"}:
+        return (
+            "SETUP:\n"
+            "Chain an even number of stitches for your desired width.\n"
+            "ROW 1:\n"
+            "Work sc across, chain 1, and turn.\n"
+            "BODY:\n"
+            "Repeat simple rows until the piece reaches the size you want.\n"
+            "BORDER:\n"
+            "Work one round of sc around the edge, placing extra stitches in corners.\n"
+            "FINISHING:\n"
+            "Fasten off and weave in all ends."
+        )
+    return (
+        "SETUP:\n"
+        f"Start {title} with a short foundation chain that feels manageable for your {skill} level.\n"
+        "BODY:\n"
+        "Work simple rows or rounds, checking the size after each section.\n"
+        "SHAPING:\n"
+        "Add increases or decreases only where the shape needs them.\n"
+        "FINISHING:\n"
+        "Fasten off, weave in ends, and adjust the final shape by hand."
+    )
+
+
+def _original_email_pattern(pattern: dict, idx: int) -> dict:
+    normalized = dict(pattern)
+    project_type = (normalized.get("project_type") or "any").strip().lower()
+    skill = (normalized.get("skill_level") or normalized.get("difficulty") or "beginner").strip().lower()
+    yarn_weight = (normalized.get("yarn_weight") or "worsted").strip().lower()
+    title = _compact_value(normalized.get("title", ""), f"StitchFlow Original Pattern {idx}")
+    normalized["title"] = title
+    normalized["tagline"] = _compact_value(
+        normalized.get("tagline") or normalized.get("description"),
+        "A simple original crochet idea written directly in this email.",
+    )
+    normalized["description"] = _compact_value(
+        normalized.get("description") or normalized.get("tagline"),
+        normalized["tagline"],
+    )
+    normalized["skill_level"] = skill
+    normalized["project_type"] = project_type
+    normalized["yarn_weight"] = yarn_weight
+    normalized["hook_size"] = _compact_value(normalized.get("hook_size", ""), "hook size from yarn label")
+    normalized["gauge"] = _compact_value(normalized.get("gauge", ""), "not critical for this starter pattern")
+    normalized["finished_size"] = _compact_value(normalized.get("finished_size", ""), "adjustable")
+    normalized["estimated_time"] = _compact_value(normalized.get("estimated_time", ""), "a short session")
+    normalized["materials"] = normalized.get("materials") or _fallback_original_materials(project_type, yarn_weight)
+    normalized["abbreviations"] = normalized.get("abbreviations") or {
+        "ch": "chain",
+        "sc": "single crochet",
+        "sl st": "slip stitch",
+    }
+    normalized["instructions"] = _compact_value(
+        normalized.get("instructions", ""),
+        _fallback_original_instructions(title, project_type, skill),
+    )
+    normalized["notes"] = normalized.get("notes") or [
+        "Count stitches at the end of each row or round.",
+        "Pause and check the shape before moving to the next section.",
+    ]
+    normalized["why_created"] = _compact_value(
+        normalized.get("why_created") or normalized.get("why_it_matches"),
+        f"Designed as a {skill} friendly original pattern you can start without leaving this email.",
+    )
+    normalized["color_suggestion"] = _compact_value(normalized.get("color_suggestion", ""), "use colors you already enjoy")
+    return normalized
+
+
 def _pattern_text_blob(pattern: dict) -> str:
     parts = [
         pattern.get("title", ""),
@@ -563,13 +680,14 @@ def _trust_summary_html(pattern: dict) -> str:
 
 def _guided_tutorial_html(pattern: dict, action_text: str) -> str:
     skill = _compact_value(pattern.get("skill_level", ""), "beginner").capitalize()
-    project = _compact_value(pattern.get("project_type", ""), "project").replace("_", " ").title()
+    project = _clean_project_label(pattern.get("project_type", ""))
     time_needed = _compact_value(pattern.get("estimated_time", ""), "a short session")
     has_tutorial = bool((pattern.get("video_tutorial") or {}).get("url"))
     start_items = [
         f"Materials: yarn, hook, and basic tools from the list below.",
         f"Time: {time_needed}.",
-        f"Skill: {skill} {project.lower()}.",
+        f"Skill: {skill}.",
+        f"Project: {project}.",
     ]
     make_steps = [
         action_text,
@@ -693,6 +811,7 @@ def _found_pattern_block(p: dict, idx: int, user: dict) -> str:
 
 
 def _original_pattern_block(p: dict, idx: int, user: dict) -> str:
+    p = _original_email_pattern(p, idx)
     skill = p.get("skill_level", "")
     skill_color = SKILL_COLORS.get(skill, "#888")
     materials = p.get("materials", [])
@@ -743,11 +862,10 @@ def _original_pattern_block(p: dict, idx: int, user: dict) -> str:
       {_full_pattern_included_note()}
       {_youtube_search_button(p)}
       {tutorial_html}
-      {_tutorial_guidance_html(p)}
       <table cellpadding="0" cellspacing="0" style="margin:0 0 14px;width:100%;font-size:12px;color:#5F5366;">
         <tr>
           <td style="padding:4px 8px 4px 0;"><strong style="color:{skill_color};">Skill:</strong> {skill.capitalize()}</td>
-          <td style="padding:4px 8px;"><strong style="color:#E65100;">Project:</strong> {p.get("project_type","").replace("_"," ").title()}</td>
+          <td style="padding:4px 8px;"><strong style="color:#E65100;">Project:</strong> {_clean_project_label(p.get("project_type",""))}</td>
         </tr>
         <tr>
           <td style="padding:4px 8px 4px 0;"><strong style="color:#7B5800;">Time:</strong> {p.get("estimated_time","")}</td>
@@ -801,7 +919,7 @@ def build_html(user: dict, patterns: list[dict]) -> str:
     found = [p for p in patterns if not p.get("is_original")]
     originals = [p for p in patterns if p.get("is_original")]
     aesthetic = user.get("aesthetic", "")
-    budget = user.get("budget", "")
+    budget = _clean_budget_text(user.get("budget", ""))
     summary_text = _summary_text(len(found), len(originals))
     base_url = _email_base_url()
     unsubscribe_url = ""
@@ -826,7 +944,7 @@ def build_html(user: dict, patterns: list[dict]) -> str:
         f"Here is your latest StitchFlow Labs crochet edit: {summary_text}, tailored to your "
         f"<strong>{user['skill_level']}</strong> skill level"
         f"{f' and <strong>{aesthetic}</strong> aesthetic' if aesthetic else ''}"
-        f"{f' with a <strong>{budget}</strong> budget' if budget else ''}."
+        f"{f' with <strong>{budget}</strong>' if budget == 'no set budget' else (f' with a <strong>{budget}</strong> budget' if budget else '')}."
     )
     found_section = ""
     if found:

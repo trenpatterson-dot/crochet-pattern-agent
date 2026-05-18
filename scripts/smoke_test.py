@@ -526,10 +526,63 @@ def main() -> int:
         assert "Materials: yarn, hook, and basic tools from the list below." in rendered_html, (
             "guided tutorial should summarize materials in beginner-friendly language"
         )
-        assert "Skill: Beginner blankets." in rendered_html, "guided tutorial should summarize skill level"
+        assert "Skill: Beginner." in rendered_html, "guided tutorial should summarize skill level cleanly"
+        assert "Project: Blankets." in rendered_html, "guided tutorial should summarize project type separately"
         assert "Watch Tutorial</a>" not in rendered_html, (
             "email HTML should not show direct tutorial CTA when the video link is invalid"
         )
+        multi_original_patterns = [
+            dict(final_checked[0], title="Complete Original One"),
+            {
+                "title": "Sparse Original Two",
+                "is_original": True,
+                "skill_level": "beginner",
+                "project_type": "any",
+                "estimated_time": "1 hour",
+                "why_created": "Sparse fallback coverage.",
+                "instructions": "",
+                "materials": [],
+                "abbreviations": {},
+                "notes": [],
+            },
+            {
+                "title": "Sparse Original Three",
+                "is_original": True,
+                "skill_level": "beginner",
+                "project_type": "",
+                "why_created": "",
+            },
+        ]
+        no_limit_user = dict(user)
+        no_limit_user["budget"] = "No limit"
+        multi_original_html = mailer.build_html(no_limit_user, multi_original_patterns)
+        for title in ("Complete Original One", "Sparse Original Two", "Sparse Original Three"):
+            assert title in multi_original_html, f"{title} should render in original email HTML"
+        assert multi_original_html.count("Pattern Instructions:") >= 3, (
+            "all original pattern cards should render Pattern Instructions"
+        )
+        assert multi_original_html.count("Materials needed:") >= 3, (
+            "all original pattern cards should render materials sections"
+        )
+        assert multi_original_html.count("Shop Materials") >= 3, (
+            "fallback original pattern materials should include Shop Materials links"
+        )
+        original_cards = multi_original_html.split("Original Pattern | Created for You")[1:]
+        assert len(original_cards) == 3, "email HTML should render three original pattern cards"
+        for card in original_cards:
+            if "Full pattern included below" in card:
+                assert "Pattern Instructions:" in card, (
+                    "original cards should not promise a full pattern without instructions in the same card"
+                )
+        assert "Skill: Beginner any" not in multi_original_html, "email HTML should not combine skill and project as 'Beginner any'"
+        assert "No limit budget" not in multi_original_html, "email intro should not say 'No limit budget'"
+        assert "no set budget" in multi_original_html, "email intro should soften no-limit budget wording"
+        assert "Tutorial search:" not in multi_original_html, "email HTML should not duplicate tutorial search plain text"
+        assert "Needs Review" not in multi_original_html, "email HTML should not render internal review labels"
+        assert "Pattern Trust" not in multi_original_html, "email HTML should not render internal trust QA language"
+        assert "Risk " not in multi_original_html, "email HTML should not render internal risk score language"
+        youtube_hrefs = re.findall(r'href="(https://www\.youtube\.com/results\?search_query=[^"]+)"', multi_original_html)
+        assert len(youtube_hrefs) >= 3, "all original cards should render clickable YouTube search links"
         search_fallback_html = mailer.build_html(
             user,
             [
