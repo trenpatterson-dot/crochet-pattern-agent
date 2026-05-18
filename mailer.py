@@ -830,10 +830,61 @@ def _original_pattern_block(p: dict, idx: int, user: dict) -> str:
         )
     instructions_anchor = f"pattern-{idx}-instructions"
     guided_tutorial = _guided_tutorial_html(p, "Jump to the full instructions below.")
+    project_label = _clean_project_label(p.get("project_type", ""))
+    details_html = f"""
+      <table cellpadding="0" cellspacing="0" style="width:100%;font-size:12px;color:#5F5366;">
+        <tr>
+          <td style="padding:4px 8px 4px 0;"><strong style="color:{skill_color};">Skill:</strong> {skill.capitalize()}</td>
+          <td style="padding:4px 8px;"><strong style="color:#E65100;">Project:</strong> {project_label}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 8px 4px 0;"><strong style="color:#7B5800;">Time:</strong> {p.get("estimated_time","")}</td>
+          <td style="padding:4px 8px;"><strong style="color:#33691E;">Hook:</strong> {p.get("hook_size","")}</td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:4px 8px 4px 0;"><strong style="color:#6A1B9A;">Yarn:</strong> {p.get("yarn_weight","").capitalize()} weight</td>
+        </tr>
+      </table>"""
+    why_html = f"""
+      <table cellpadding="0" cellspacing="0" style="width:100%;">
+        <tr><td style="background:#FFF8E1;border-left:4px solid #FBC02D;
+                       padding:10px 14px;border-radius:0 6px 6px 0;">
+          <p style="margin:0;font-size:13px;color:#5D4037;font-style:italic;line-height:1.55;">
+            <strong>Why we made this for you:</strong> {p.get("why_created","")}
+          </p>
+          {f'<p style="margin:6px 0 0;font-size:12px;color:#A1670A;">Color: {p.get("color_suggestion","")}</p>' if p.get("color_suggestion") else ""}
+        </td></tr>
+      </table>"""
+    measurements_html = f"""
+      <p style="margin:0;font-size:12px;color:#888;">
+        <strong style="color:#7B5800;">Gauge:</strong> {p.get("gauge","")}&nbsp;&nbsp;
+        <strong style="color:#7B5800;">Finished size:</strong> {p.get("finished_size","")}
+      </p>"""
+    materials_html = f"""
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#7B5800;">
+        Materials needed:
+      </p>
+      <ul style="margin:0;padding-left:20px;font-size:13px;color:#555;line-height:1.7;">
+        {_materials_html(materials, link_color="#A1670A")}
+      </ul>
+      {_material_price_note(materials)}"""
+    instructions_html = f"""
+      <p id="{instructions_anchor}" style="margin:0 0 8px;font-size:13px;font-weight:700;color:#7B5800;">
+        Pattern Instructions:
+      </p>
+      <div style="background:#FFF9C4;border:1px solid #FDD835;border-radius:8px;
+                  padding:14px 16px;font-size:13px;font-family:monospace;
+                  color:#333;line-height:1.7;">
+        {_instructions_html(instructions)}
+      </div>"""
+    notes_section = (
+        '<p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#7B5800;">Pattern Notes:</p>'
+        f'<ul style="margin:0;padding-left:20px;font-size:13px;color:#555;line-height:1.7;">{notes_html}</ul>'
+    )
 
     return f"""
 <tr><td style="padding:0 32px 24px;">
-  <table width="100%" cellpadding="0" cellspacing="0"
+  <table id="original-pattern-card-{idx}" width="100%" cellpadding="0" cellspacing="0"
     style="border:2px solid #F9A825;border-radius:12px;overflow:hidden;background:#FFFDF5;
            box-shadow:0 2px 10px rgba(245,127,23,0.10);">
     <tr>
@@ -848,7 +899,7 @@ def _original_pattern_block(p: dict, idx: int, user: dict) -> str:
           padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;">FREE</span>
       </td>
     </tr>
-    <tr><td style="padding:16px 18px;">
+    <tr><td style="padding:16px 18px 0;">
       <h3 style="margin:0 0 4px;font-size:17px;color:#7B5800;">
         {p.get("title","")}
       </h3>
@@ -862,49 +913,15 @@ def _original_pattern_block(p: dict, idx: int, user: dict) -> str:
       {_full_pattern_included_note()}
       {_youtube_search_button(p)}
       {tutorial_html}
-      <table cellpadding="0" cellspacing="0" style="margin:0 0 14px;width:100%;font-size:12px;color:#5F5366;">
-        <tr>
-          <td style="padding:4px 8px 4px 0;"><strong style="color:{skill_color};">Skill:</strong> {skill.capitalize()}</td>
-          <td style="padding:4px 8px;"><strong style="color:#E65100;">Project:</strong> {_clean_project_label(p.get("project_type",""))}</td>
-        </tr>
-        <tr>
-          <td style="padding:4px 8px 4px 0;"><strong style="color:#7B5800;">Time:</strong> {p.get("estimated_time","")}</td>
-          <td style="padding:4px 8px;"><strong style="color:#33691E;">Hook:</strong> {p.get("hook_size","")}</td>
-        </tr>
-        <tr>
-          <td colspan="2" style="padding:4px 8px 4px 0;"><strong style="color:#6A1B9A;">Yarn:</strong> {p.get("yarn_weight","").capitalize()} weight</td>
-        </tr>
-      </table>
-      <table cellpadding="0" cellspacing="0" style="margin-bottom:14px;width:100%;">
-        <tr><td style="background:#FFF8E1;border-left:4px solid #FBC02D;
-                       padding:10px 14px;border-radius:0 6px 6px 0;">
-          <p style="margin:0;font-size:13px;color:#5D4037;font-style:italic;line-height:1.55;">
-            <strong>Why we made this for you:</strong> {p.get("why_created","")}
-          </p>
-          {f'<p style="margin:6px 0 0;font-size:12px;color:#A1670A;">Color: {p.get("color_suggestion","")}</p>' if p.get("color_suggestion") else ""}
-        </td></tr>
-      </table>
-      <p style="margin:0 0 4px;font-size:12px;color:#888;">
-        <strong style="color:#7B5800;">Gauge:</strong> {p.get("gauge","")}&nbsp;&nbsp;
-        <strong style="color:#7B5800;">Finished size:</strong> {p.get("finished_size","")}
-      </p>
-      <p style="margin:14px 0 6px;font-size:13px;font-weight:700;color:#7B5800;">
-        Materials needed:
-      </p>
-      <ul style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#555;line-height:1.7;">
-        {_materials_html(materials, link_color="#A1670A")}
-      </ul>
-      {_material_price_note(materials)}
-      {_abbrev_html(abbrevs)}
-      <p id="{instructions_anchor}" style="margin:0 0 8px;font-size:13px;font-weight:700;color:#7B5800;">
-        Pattern Instructions:
-      </p>
-      <div style="background:#FFF9C4;border:1px solid #FDD835;border-radius:8px;
-                  padding:14px 16px;font-size:13px;font-family:monospace;
-                  color:#333;line-height:1.7;margin-bottom:14px;">
-        {_instructions_html(instructions)}
-      </div>
-      {f'<p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#7B5800;">Pattern Notes:</p><ul style="margin:0 0 14px;padding-left:20px;font-size:13px;color:#555;line-height:1.7;">{notes_html}</ul>' if notes_html else ""}
+    </td></tr>
+    <tr><td style="padding:0 18px 14px;">{details_html}</td></tr>
+    <tr><td style="padding:0 18px 14px;">{why_html}</td></tr>
+    <tr><td style="padding:0 18px 14px;">{measurements_html}</td></tr>
+    <tr><td style="padding:0 18px 14px;">{materials_html}</td></tr>
+    <tr><td style="padding:0 18px 14px;">{_abbrev_html(abbrevs)}</td></tr>
+    <tr><td style="padding:0 18px 14px;">{instructions_html}</td></tr>
+    <tr><td style="padding:0 18px 14px;">{notes_section}</td></tr>
+    <tr><td style="padding:0 18px 16px;">
       <p style="margin:0;font-size:11px;color:#aaa;border-top:1px solid #FDD835;
                 padding-top:10px;">
         Original StitchFlow Labs pattern for personal use. No external pattern link required.

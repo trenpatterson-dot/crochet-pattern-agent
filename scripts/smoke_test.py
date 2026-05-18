@@ -564,16 +564,41 @@ def main() -> int:
         assert multi_original_html.count("Materials needed:") >= 3, (
             "all original pattern cards should render materials sections"
         )
+        assert multi_original_html.count("Abbreviations:") >= 3, (
+            "all original pattern cards should render abbreviations"
+        )
+        assert multi_original_html.count("Pattern Notes:") >= 3, (
+            "all original pattern cards should render pattern notes"
+        )
         assert multi_original_html.count("Shop Materials") >= 3, (
             "fallback original pattern materials should include Shop Materials links"
         )
-        original_cards = multi_original_html.split("Original Pattern | Created for You")[1:]
-        assert len(original_cards) == 3, "email HTML should render three original pattern cards"
+        card_markers = list(re.finditer(r'<table id="original-pattern-card-\d+"', multi_original_html))
+        assert len(card_markers) == 3, "email HTML should render three original pattern cards"
+        original_cards = []
+        for index, marker in enumerate(card_markers):
+            end = card_markers[index + 1].start() if index + 1 < len(card_markers) else len(multi_original_html)
+            original_cards.append(multi_original_html[marker.start():end])
         for card in original_cards:
+            assert "Search YouTube Tutorial" in card, "each original card should include the YouTube tutorial CTA"
+            assert "youtube.com/results?search_query=" in card, "each tutorial CTA should link to YouTube results"
+            assert "Materials needed:" in card, "each original card should include materials in the same card"
+            assert "Abbreviations:" in card, "each original card should include abbreviations in the same card"
+            assert "Pattern Instructions:" in card, "each original card should include instructions in the same card"
+            assert "Pattern Notes:" in card, "each original card should include notes in the same card"
+            assert "Original StitchFlow Labs pattern for personal use." in card, (
+                "each original card should include the personal-use note"
+            )
             if "Full pattern included below" in card:
                 assert "Pattern Instructions:" in card, (
                     "original cards should not promise a full pattern without instructions in the same card"
                 )
+            assert card.index("Search YouTube Tutorial") < card.index("Materials needed:"), (
+                "email output should not jump from tutorial CTA directly to the next card"
+            )
+            assert card.index("Materials needed:") < card.index("Pattern Instructions:"), (
+                "materials should render before instructions in each original card"
+            )
         assert "Skill: Beginner any" not in multi_original_html, "email HTML should not combine skill and project as 'Beginner any'"
         assert "No limit budget" not in multi_original_html, "email intro should not say 'No limit budget'"
         assert "no set budget" in multi_original_html, "email intro should soften no-limit budget wording"
@@ -581,6 +606,9 @@ def main() -> int:
         assert "Needs Review" not in multi_original_html, "email HTML should not render internal review labels"
         assert "Pattern Trust" not in multi_original_html, "email HTML should not render internal trust QA language"
         assert "Risk " not in multi_original_html, "email HTML should not render internal risk score language"
+        assert "View Full Pattern</a>" not in multi_original_html, (
+            "original cards should not render fake View Full Pattern buttons"
+        )
         youtube_hrefs = re.findall(r'href="(https://www\.youtube\.com/results\?search_query=[^"]+)"', multi_original_html)
         assert len(youtube_hrefs) >= 3, "all original cards should render clickable YouTube search links"
         search_fallback_html = mailer.build_html(
