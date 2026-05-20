@@ -431,37 +431,73 @@ def _fallback_original_instructions(title: str, project_type: str, skill: str) -
     project = (project_type or "any").lower()
     if project == "amigurumi":
         return (
-            "SETUP:\n"
-            "Make a magic ring and work 6 sc into the ring.\n"
-            "BODY:\n"
-            "Increase evenly until the piece is wide enough for your small shape.\n"
-            "Work even rounds until the body is the height you want.\n"
-            "FINISHING:\n"
-            "Stuff lightly, decrease evenly, close the opening, and weave in ends."
+            "PROJECT OVERVIEW: A small rounded amigurumi body worked in continuous sc rounds.\n"
+            "EXACT STITCHES USED: magic ring, sc, inc, dec, sl st.\n"
+            "ROUND SETUP: place a stitch marker in the first stitch of each round.\n"
+            "Pattern Instructions:\n"
+            "Round 1: 6 sc in magic ring. (6 sts)\n"
+            "Round 2: inc around. (12 sts)\n"
+            "Rounds 3-6: sc around. (12 sts each round)\n"
+            "Round 7: [sc, dec] around. (8 sts)\n"
+            "Stuff/shape: add stuffing a little at a time and keep the shape rounded.\n"
+            "Finish: dec around until closed, sl st to finish, fasten off, and weave in the tail."
         )
     if project in {"blankets", "baby"}:
         return (
-            "SETUP:\n"
-            "Chain an even number of stitches for your desired width.\n"
-            "ROW 1:\n"
-            "Work sc across, chain 1, and turn.\n"
-            "BODY:\n"
-            "Repeat simple rows until the piece reaches the size you want.\n"
-            "BORDER:\n"
-            "Work one round of sc around the edge, placing extra stitches in corners.\n"
-            "FINISHING:\n"
-            "Fasten off and weave in all ends."
+            "PROJECT OVERVIEW: A flat beginner blanket panel with sc edges and hdc body rows.\n"
+            "EXACT STITCHES USED: ch, sc, hdc, sl st.\n"
+            "STARTING CHAIN: ch 62.\n"
+            "Pattern Instructions:\n"
+            "Row 1: sc in second ch from hook and across. (61 sts)\n"
+            "Row 2: ch 2, turn, hdc across. (61 sts)\n"
+            "Rows 3-36: repeat Row 2, counting 61 sts after each row. (61 sts each row)\n"
+            "Final row: ch 1, turn, sc across. (61 sts)\n"
+            "Finishing: work 1 round of sc around all edges, placing 3 sc in each corner; join with sl st, fasten off, and weave in ends."
+        )
+    if project == "bags":
+        return (
+            "PROJECT OVERVIEW: A sturdy tote with a sc base, hdc sides, and sewn-on straps.\n"
+            "EXACT STITCHES USED: ch, sc, hdc, sl st.\n"
+            "STARTING CHAIN: ch 31.\n"
+            "Pattern Instructions:\n"
+            "Row 1: sc in second ch from hook and across. (30 sts)\n"
+            "Rows 2-10: ch 1, turn, sc across for the base. (30 sts each row)\n"
+            "Round 1: sc evenly around the base, placing 3 sc in each corner; join with sl st. (84 sts)\n"
+            "Rounds 2-18: ch 2, hdc around; join with sl st. (84 sts each round)\n"
+            "Final row: ch 1, sc around the top edge; join with sl st. (84 sts)\n"
+            "Finishing: sew on two 18-inch sc straps and reinforce each strap join."
         )
     return (
-        "SETUP:\n"
-        f"Start {title} with a short foundation chain that feels manageable for your {skill} level.\n"
-        "BODY:\n"
-        "Work simple rows or rounds, checking the size after each section.\n"
-        "SHAPING:\n"
-        "Add increases or decreases only where the shape needs them.\n"
-        "FINISHING:\n"
-        "Fasten off, weave in ends, and adjust the final shape by hand."
+        f"PROJECT OVERVIEW: {title} is a small flat {skill} project with a clear hdc repeat and sc finishing edge.\n"
+        "EXACT STITCHES USED: ch, sc, hdc, sl st.\n"
+        "STARTING CHAIN: ch 18.\n"
+        "Pattern Instructions:\n"
+        "Row 1: hdc in third ch from hook and across. (16 sts)\n"
+        "Row 2: ch 2, turn, hdc across. (16 sts)\n"
+        "Rows 3-12: repeat Row 2, counting 16 sts after each row. (16 sts each row)\n"
+        "Final row: ch 1, turn, sc across. (16 sts)\n"
+        "Finishing: sl st around the edge, fasten off, weave in ends, and block flat."
     )
+
+
+def _instructions_need_detail(instructions: str) -> bool:
+    normalized = " ".join((instructions or "").lower().split())
+    if not normalized:
+        return True
+    has_row_or_round = bool(re.search(r"\b(row|round)\s+\d+", normalized))
+    has_stitch_count = " sts" in normalized or " stitches" in normalized
+    has_stitch_type = bool(re.search(r"\b(sc|hdc|dc|ch|sl st)\b", normalized))
+    vague_markers = (
+        "repeat until it fits",
+        "work in pattern",
+        "continue as needed",
+        "shape as desired",
+        "desired width",
+        "height you want",
+    )
+    if any(marker in normalized for marker in vague_markers) and not (has_row_or_round and has_stitch_count):
+        return True
+    return not (has_row_or_round and has_stitch_count and has_stitch_type)
 
 
 def _original_email_pattern(pattern: dict, idx: int) -> dict:
@@ -492,10 +528,10 @@ def _original_email_pattern(pattern: dict, idx: int) -> dict:
         "sc": "single crochet",
         "sl st": "slip stitch",
     }
-    normalized["instructions"] = _compact_value(
-        normalized.get("instructions", ""),
-        _fallback_original_instructions(title, project_type, skill),
-    )
+    if _instructions_need_detail(normalized.get("instructions", "")):
+        normalized["instructions"] = _fallback_original_instructions(title, project_type, skill)
+    else:
+        normalized["instructions"] = normalized.get("instructions", "").strip()
     normalized["notes"] = normalized.get("notes") or [
         "Count stitches at the end of each row or round.",
         "Pause and check the shape before moving to the next section.",

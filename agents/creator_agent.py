@@ -25,19 +25,45 @@ You are an experienced crochet pattern designer. Your job is to write original c
 patterns tailored specifically to one user's preferences.
 
 Each pattern must include:
-- a fitting name
+- a fitting project title
+- project overview
 - skill level
 - hook size and yarn weight
-- gauge
-- finished size
+- gauge guidance
+- finished size estimate
 - a concise materials list
 - abbreviations
-- instructions
-- notes
+- exact stitch types used
+- starting chain count or round setup
+- a detailed Pattern Instructions section with row-by-row or round-by-round instructions
+- stitch counts for each row or round where appropriate
+- finishing steps
+- pattern notes
+- beginner tips
 - a color suggestion
 - why this pattern was designed for the user
 
-Keep the output compact, practical, and consistent.
+Do not rely on vague-only instructions such as "repeat until it fits", "work in pattern",
+"continue as needed", or "shape as desired" unless the same instruction also gives exact
+row or round guidance and stitch counts.
+
+For flat projects, instructions must use this shape:
+Pattern Instructions:
+Row 1:
+Row 2:
+Rows 3-10:
+Final row:
+Finishing:
+
+For round or amigurumi projects, instructions must use this shape:
+Pattern Instructions:
+Round 1:
+Round 2:
+Rounds 3-6:
+Stuff/shape:
+Finish:
+
+Keep the output practical, specific, and consistent.
 Return ONLY valid JSON:
 {
   "original_patterns": [
@@ -55,7 +81,7 @@ Return ONLY valid JSON:
       "description": "Short overview of the idea",
       "materials": [{"name": "bulky yarn", "quantity": "3 skeins"}],
       "abbreviations": {"ch": "chain", "sc": "single crochet"},
-      "instructions": "Compact, usable instructions",
+      "instructions": "Pattern Instructions:\nRow 1: sc in second ch from hook and across. (20 sts)\nRow 2: ch 1, turn, sc across. (20 sts)\nRows 3-10: repeat Row 2. (20 sts)\nFinal row: sl st across for a firm edge. (20 sts)\nFinishing: fasten off and weave in ends.",
       "notes": ["Tip 1"],
       "tutorial_guidance": "Search YouTube for: crochet Pattern Name tutorial",
       "color_suggestion": "Soft neutral tones",
@@ -269,94 +295,110 @@ def _finished_size_for(project_type: str) -> str:
 def _fallback_instructions(project_type: str, skill: str) -> str:
     templates = {
         "blankets": [
-            "PROJECT OVERVIEW: Work this blanket in rows with a simple repeat and finish with a clean border.",
-            "1. Crochet a gauge swatch, then chain a starting width of about 32 inches or your preferred lap-blanket width.",
-            "2. Row 1: Work across the chain in your main stitch pattern, keeping the edge stitches relaxed and even.",
-            "3. Row 2: Chain to turn, then repeat the same row pattern across. Use stitch markers on the first and last stitch if your edges tend to drift.",
-            "4. Continue the row repeat until the blanket measures about 38 to 40 inches long.",
-            "5. If you want more texture, add an accent stripe or one textured row every 6 to 8 rows.",
-            "6. Add a border of 2 to 3 rounds of single crochet or half double crochet, working 3 stitches in each corner so the edges lie flat.",
-            "7. Fasten off, weave in ends, and block lightly so the blanket settles into shape.",
+            "PROJECT OVERVIEW: Work a small lap blanket in straight rows with single crochet and half double crochet texture.",
+            "EXACT STITCHES USED: ch, sc, hdc, sl st.",
+            "STARTING CHAIN: ch 82.",
+            "Pattern Instructions:",
+            "Row 1: sc in second ch from hook and in each ch across. (81 sts)",
+            "Row 2: ch 1, turn, sc in first st, hdc across to last st, sc in last st. (81 sts)",
+            "Rows 3-52: repeat Row 2, counting 81 sts at the end of every row.",
+            "Final row: ch 1, turn, sl st loosely across to firm the edge. (81 sts)",
+            "Finishing: ch 1, work 1 round of sc around all edges, placing 3 sc in each corner; join with sl st, fasten off, weave in ends, and block flat.",
         ],
         "hats_scarves": [
-            "PROJECT OVERVIEW: Make a long scarf with a steady row repeat and an easy edging pass.",
-            "1. Crochet a gauge swatch, then chain until your foundation measures about 60 inches for a standard scarf length.",
-            "2. Row 1: Work across the chain in your chosen stitch pattern, keeping the tension relaxed for good drape.",
-            "3. Row 2: Turn, chain to the correct height, and repeat the row pattern across.",
-            "4. Continue repeating Row 2 until the scarf measures about 7 inches wide or your preferred width.",
-            "5. Check the drape after a few inches; if the fabric feels too stiff, go up a hook size before continuing.",
-            "6. Add a final edging row around the scarf, or add short fringe if you want a softer finish.",
-            "7. Fasten off, weave in ends, and steam or block lightly so the edges smooth out.",
+            "PROJECT OVERVIEW: Make a beginner scarf in long rows with a clean single crochet edge and half double crochet body.",
+            "EXACT STITCHES USED: ch, sc, hdc, sl st.",
+            "STARTING CHAIN: ch 142.",
+            "Pattern Instructions:",
+            "Row 1: hdc in third ch from hook and in each ch across. (140 sts)",
+            "Row 2: ch 2, turn, hdc across. (140 sts)",
+            "Rows 3-12: repeat Row 2 for a scarf about 7 inches wide. (140 sts each row)",
+            "Final row: ch 1, turn, sc across for a tidy edge. (140 sts)",
+            "Finishing: fasten off, weave in ends, and block lightly so the scarf edges relax.",
         ],
         "amigurumi": [
-            "PROJECT OVERVIEW: Work the toy in continuous rounds, shape with increases and decreases, then stuff and finish firmly.",
-            "1. Start with a magic ring and work 6 single crochet into the ring.",
-            "2. Round 2 and beyond: Increase evenly to form the base, then work even rounds to build the body shape.",
-            "3. Use a stitch marker at the start of each round so you do not lose your place.",
-            "4. Add any color changes or small features before the piece becomes too narrow to handle comfortably.",
-            "5. Place safety eyes before closing the head, or embroider the eyes if the finished piece is for a baby or young child.",
-            "6. Stuff the shape firmly but evenly, then work decrease rounds to close the opening.",
-            "7. Fasten off with a long tail, sew the opening closed, and stitch on any arms, ears, or other small parts securely.",
+            "PROJECT OVERVIEW: Crochet a small rounded amigurumi body in continuous single crochet rounds.",
+            "EXACT STITCHES USED: magic ring, sc, inc, dec, sl st.",
+            "ROUND SETUP: use a stitch marker for the first stitch of each round.",
+            "Pattern Instructions:",
+            "Round 1: 6 sc in magic ring. (6 sts)",
+            "Round 2: inc around. (12 sts)",
+            "Rounds 3-6: sc around. (12 sts each round)",
+            "Round 7: [sc, dec] around. (8 sts)",
+            "Stuff/shape: add a small amount of stuffing and shape the body evenly.",
+            "Finish: dec around until closed, sl st to finish, fasten off, and weave the tail through the final stitches.",
         ],
         "clothing": [
-            "PROJECT OVERVIEW: Build this wearable from easy rectangles, then seam, try on, and refine the fit before finishing.",
-            "1. Take a quick measurement across the upper back or around the bust so you can choose a comfortable finished width.",
-            "2. Crochet a gauge swatch, then make the first panel as a rectangle using the listed stitch repeat.",
-            "3. Repeat the same rectangle for the second panel, checking the length against your shoulder-to-hip preference as you go.",
-            "4. Seam the panels along the shoulders and side edges, leaving generous openings for the arms.",
-            "5. Try the piece on before finishing the seams so you can adjust the depth, drape, or arm opening if needed.",
-            "6. Add edging around the front opening, sleeves, and lower hem with one or two tidy rounds.",
-            "7. Weave in ends, block lightly, and do a final fit check before wearing.",
+            "PROJECT OVERVIEW: Make two simple rectangle panels, seam them into a loose shrug, and finish with single crochet edging.",
+            "EXACT STITCHES USED: ch, hdc, sc, sl st.",
+            "STARTING CHAIN: ch 44 for each panel.",
+            "Pattern Instructions:",
+            "Row 1: hdc in third ch from hook and across. (42 sts)",
+            "Row 2: ch 2, turn, hdc across. (42 sts)",
+            "Rows 3-34: repeat Row 2 for the first rectangle. (42 sts each row)",
+            "Final row: ch 1, turn, sc across. (42 sts)",
+            "Finishing: make a second matching panel, seam 12 stitches at each shoulder, seam side edges leaving 8 inches for each arm opening, then work 1 round of sc around openings.",
         ],
         "bags": [
-            "PROJECT OVERVIEW: Crochet a sturdy bag body, then add handles and reinforce the opening.",
-            "1. Start with a rectangle or oval base sized for the finished bag you want.",
-            "2. Work the sides evenly, using stitch markers at the corners or side transitions.",
-            "3. Continue until the bag body reaches your preferred height, checking that the fabric feels firm enough to hold shape.",
-            "4. Create handles by chaining and skipping stitches, or crochet separate straps and sew them on securely.",
-            "5. Add one final round around the opening and handles to strengthen the edge.",
-            "6. Weave in ends carefully, especially around the strap joins.",
-            "7. Block lightly if needed, then test the handles with a small amount of weight before regular use.",
+            "PROJECT OVERVIEW: Crochet a sturdy tote from a rectangular base, then build the sides in joined rounds.",
+            "EXACT STITCHES USED: ch, sc, hdc, sl st.",
+            "STARTING CHAIN: ch 31 for the base.",
+            "Pattern Instructions:",
+            "Row 1: sc in second ch from hook and across. (30 sts)",
+            "Rows 2-10: ch 1, turn, sc across to make the base rectangle. (30 sts each row)",
+            "Round 1: sc evenly around the base, placing 3 sc in each corner; join with sl st. (84 sts)",
+            "Rounds 2-18: ch 2, hdc around; join with sl st. (84 sts each round)",
+            "Final row: ch 1, sc around the top edge; join with sl st. (84 sts)",
+            "Finishing: make two 18-inch straps with rows of sc, sew them 4 inches in from each side, and reinforce each join with extra stitches.",
         ],
         "home_decor": [
-            "PROJECT OVERVIEW: Work this home decor piece in simple repeats with crisp edges and a tidy finish.",
-            "1. Begin with the listed starting chain or center ring, depending on the shape you want.",
-            "2. Establish the main stitch repeat in the first few rows or rounds, then keep the count consistent.",
-            "3. Use stitch markers to keep corners, edge increases, or round joins easy to track.",
-            "4. Continue until the piece reaches the planned dimensions.",
-            "5. Add a contrasting edge, hanging loop, or second finishing round if the project benefits from structure.",
-            "6. Fasten off, weave in ends, and block so the edges sit cleanly.",
+            "PROJECT OVERVIEW: Make a flat mug rug or table mat with rows of single crochet and a neat border.",
+            "EXACT STITCHES USED: ch, sc, hdc, sl st.",
+            "STARTING CHAIN: ch 18.",
+            "Pattern Instructions:",
+            "Row 1: sc in second ch from hook and across. (17 sts)",
+            "Row 2: ch 2, turn, hdc across. (17 sts)",
+            "Rows 3-12: repeat Row 2. (17 sts each row)",
+            "Final row: ch 1, turn, sc across. (17 sts)",
+            "Finishing: sc evenly around all four sides, placing 3 sc in each corner; join with sl st, fasten off, and block flat.",
         ],
         "baby": [
-            "PROJECT OVERVIEW: Make a soft baby-friendly piece with gentle texture and comfortable finishing.",
-            "1. Crochet a gauge swatch and choose a soft, washable yarn before starting.",
-            "2. Chain to the listed width, then work the first row in an easy-to-count stitch pattern.",
-            "3. Repeat the row pattern evenly, checking the fabric often so it stays soft and flexible.",
-            "4. Continue until the piece reaches the intended length for stroller, crib, or nursery use.",
-            "5. Add a soft border with rounded corners and no scratchy finishing details.",
-            "6. Weave in all ends securely and block lightly before use.",
+            "PROJECT OVERVIEW: Crochet a small baby blanket with soft single crochet edges and easy half double crochet rows.",
+            "EXACT STITCHES USED: ch, sc, hdc, sl st.",
+            "STARTING CHAIN: ch 62.",
+            "Pattern Instructions:",
+            "Row 1: sc in second ch from hook and across. (61 sts)",
+            "Row 2: ch 2, turn, hdc across. (61 sts)",
+            "Rows 3-36: repeat Row 2, keeping the fabric soft and flexible. (61 sts each row)",
+            "Final row: ch 1, turn, sc across. (61 sts)",
+            "Finishing: work 1 round of sc around the blanket, placing 3 sc in each corner; join with sl st, fasten off, and weave in ends securely.",
         ],
         "holiday": [
-            "PROJECT OVERVIEW: Work a small seasonal project with simple shaping and a neat finished edge.",
-            "1. Start with the listed chain or ring and establish the shape in the first row or round.",
-            "2. Keep the stitch repeat compact so the project stays quick and giftable.",
-            "3. Add any color changes near the beginning of a row or round for cleaner transitions.",
-            "4. Continue until the motif or piece reaches the finished size you want.",
-            "5. Add a hanging loop, border, or finishing tie if the project needs one.",
-            "6. Weave in ends and block lightly so the shape looks crisp.",
+            "PROJECT OVERVIEW: Make a small seasonal rectangle that can become a mug rug, gift tag, or ornament pocket.",
+            "EXACT STITCHES USED: ch, sc, hdc, sl st.",
+            "STARTING CHAIN: ch 16.",
+            "Pattern Instructions:",
+            "Row 1: sc in second ch from hook and across. (15 sts)",
+            "Row 2: ch 2, turn, hdc across. (15 sts)",
+            "Rows 3-8: repeat Row 2, changing color at the start of Row 5 if desired. (15 sts each row)",
+            "Final row: ch 1, turn, sc across. (15 sts)",
+            "Finishing: ch 10 for a hanging loop, sl st into the same corner, fasten off, weave in ends, and block flat.",
         ],
         "accessories": [
-            "PROJECT OVERVIEW: Make a quick accessory with a simple repeat and a polished finish.",
-            "1. Measure the area the accessory needs to fit, then crochet a swatch before starting the full piece.",
-            "2. Chain to the listed width or circumference and work the first row in pattern.",
-            "3. Repeat the main stitch pattern until the piece fits comfortably.",
-            "4. Join the ends if needed, then add a narrow edging row to clean up the outline.",
-            "5. Weave in ends and block lightly if you want a smoother finish.",
+            "PROJECT OVERVIEW: Make a quick headband or wrist warmer rectangle with a clear stitch count and simple seam.",
+            "EXACT STITCHES USED: ch, sc, hdc, sl st.",
+            "STARTING CHAIN: ch 18.",
+            "Pattern Instructions:",
+            "Row 1: hdc in third ch from hook and across. (16 sts)",
+            "Row 2: ch 2, turn, hdc across. (16 sts)",
+            "Rows 3-28: repeat Row 2 for a small accessory rectangle. (16 sts each row)",
+            "Final row: ch 1, turn, sc across. (16 sts)",
+            "Finishing: bring short ends together, sl st through both layers to seam, fasten off, weave in ends, and turn seam to the inside.",
         ],
     }
     steps = list(templates.get(project_type, templates["accessories"]))
     if skill in {"intermediate", "advanced"} and project_type in {"blankets", "hats_scarves", "clothing"}:
-        steps.insert(-2, "Optional detail: add one accent stripe, textured section, or shaping row if you want more visual interest.")
+        steps.insert(-1, "Optional detail: add one accent stripe after every 8 rows while keeping the same stitch count.")
     return "\n".join(steps)
 
 
@@ -434,8 +476,19 @@ def _is_vague_instructions(instructions: str) -> bool:
         "start with a foundation chain, crochet the main shape, then finish edges and weave in ends",
         "compact, usable instructions",
         "chain the width you want, or start with a magic ring if this is an amigurumi-style project",
+        "repeat until it fits",
+        "work in pattern",
+        "continue as needed",
+        "shape as desired",
     ]
     if normalized in vague_markers:
+        return True
+    has_row_or_round = bool(re.search(r"\b(row|round)\s+\d+", normalized))
+    has_stitch_count = " sts" in normalized or " stitches" in normalized
+    has_stitch_type = bool(re.search(r"\b(sc|hdc|dc|ch|sl st)\b", normalized))
+    if any(marker in normalized for marker in vague_markers) and not (has_row_or_round and has_stitch_count):
+        return True
+    if not (has_row_or_round and has_stitch_count and has_stitch_type):
         return True
     return len([line for line in (instructions or "").splitlines() if line.strip()]) < 5
 
@@ -603,9 +656,10 @@ def create(
     interests = user.get("special_interests", "")
 
     instruction_note = (
-        "Keep instructions compact and practical: group repeats and avoid extra prose."
-        if DEFAULT_INSTRUCTION_DETAIL == "compact"
-        else "Write detailed instructions."
+        "Write specific Pattern Instructions with exact stitch types, starting chain or round setup, "
+        "row-by-row or round-by-round steps, stitch counts such as '(20 sts)', finishing steps, "
+        "pattern notes, and beginner tips. Group long repeats only after Row 1 and Row 2 or "
+        "Round 1 and Round 2 are fully specified."
     )
 
     fallback_note = (
@@ -631,6 +685,9 @@ Special Interests: {interests or "none"}
 
 {instruction_note}
 {fallback_note}
+Avoid vague-only instructions such as "repeat until it fits", "work in pattern",
+"continue as needed", or "shape as desired" unless exact row/round guidance and
+stitch counts are included in the same pattern.
 Keep each pattern personal, mathematically consistent, and easy to follow."""
 
     raw = llm.chat(SYSTEM, user_msg, max_tokens=1600 if selected_test_mode else 2800)

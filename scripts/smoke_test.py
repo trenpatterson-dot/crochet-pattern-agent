@@ -39,7 +39,7 @@ def main() -> int:
         _set_env(db_path)
 
         import database
-        from agents import competition_intelligence_agent
+        from agents import competition_intelligence_agent, creator_agent
         from agents import link_builder, link_validator, pattern_trust
         import mailer
         import orchestrator
@@ -107,6 +107,41 @@ def main() -> int:
         assert len(users) == 1, f"expected 1 active user, found {len(users)}"
         user = users[0]
         assert user["email_frequency"] == "monthly", "email frequency preference was not saved"
+
+        original_creator_chat = creator_agent.llm.chat
+        try:
+            creator_agent.llm.chat = lambda *args, **kwargs: "{not valid json"
+            generated_originals, creator_meta = creator_agent.create(
+                dict(
+                    user,
+                    _selected_test_mode=True,
+                    project_types=["blankets", "amigurumi", "bags"],
+                ),
+                pattern_count=3,
+                fallback_mode=True,
+                return_meta=True,
+            )
+        finally:
+            creator_agent.llm.chat = original_creator_chat
+
+        assert creator_meta["reason"] == "deterministic_fallback_used", (
+            "selected-test fallback should recover when creator JSON is invalid"
+        )
+        assert len(generated_originals) == 3, "creator fallback should return all 3 original patterns"
+        for generated in generated_originals:
+            generated_instructions = generated["instructions"]
+            assert "Pattern Instructions" in generated_instructions, (
+                "generated original patterns should include a detailed Pattern Instructions section"
+            )
+            assert re.search(r"\bRow 1\b|\bRound 1\b", generated_instructions), (
+                "generated original patterns should include Row 1 or Round 1"
+            )
+            assert re.search(r"\b(sc|hdc|dc|ch|sl st)\b", generated_instructions), (
+                "generated original patterns should include stitch abbreviations"
+            )
+            assert "sts" in generated_instructions, (
+                "generated original patterns should include stitch counts"
+            )
 
         original_chat = competition_intelligence_agent.llm.chat
         original_ddg = competition_intelligence_agent.llm.ddg_search
@@ -260,7 +295,14 @@ def main() -> int:
                     "is_original": True,
                     "materials": [],
                     "abbreviations": {},
-                    "instructions": "Row 1: ch 10",
+                    "instructions": (
+                        "Pattern Instructions:\n"
+                        "Row 1: sc in second ch from hook and across. (20 sts)\n"
+                        "Row 2: ch 1, turn, sc across. (20 sts)\n"
+                        "Rows 3-10: repeat Row 2. (20 sts each row)\n"
+                        "Final row: sl st across. (20 sts)\n"
+                        "Finishing: fasten off and weave in ends."
+                    ),
                     "notes": [],
                     "hook_size": "5mm",
                     "yarn_weight": "cotton",
@@ -502,6 +544,14 @@ def main() -> int:
             "email HTML should link the tutorial CTA to a YouTube search results page"
         )
         assert "<strong>Why:</strong>" in rendered_html, "email HTML should include confidence reason text"
+        assert "Pattern Instructions:" in rendered_html, "original email HTML should include Pattern Instructions"
+        assert re.search(r"\bRow 1\b|\bRound 1\b", rendered_html), (
+            "original email HTML should include row-by-row or round-by-round instructions"
+        )
+        assert re.search(r"\b(sc|hdc|dc|ch|sl st)\b", rendered_html), (
+            "original email HTML should include crochet stitch abbreviations"
+        )
+        assert "sts" in rendered_html, "original email HTML should include stitch counts"
         assert "Likely beginner-friendly" in rendered_html, (
             "confidence reason should use cautious beginner-friendly wording"
         )
@@ -580,11 +630,31 @@ def main() -> int:
             end = card_markers[index + 1].start() if index + 1 < len(card_markers) else len(multi_original_html)
             original_cards.append(multi_original_html[marker.start():end])
         for card in original_cards:
+            card_text = re.sub(r"<[^>]+>", " ", card)
+            card_text = " ".join(card_text.split())
+            card_lower = card_text.lower()
             assert "Search YouTube Tutorial" in card, "each original card should include the YouTube tutorial CTA"
             assert "youtube.com/results?search_query=" in card, "each tutorial CTA should link to YouTube results"
             assert "Materials needed:" in card, "each original card should include materials in the same card"
             assert "Abbreviations:" in card, "each original card should include abbreviations in the same card"
             assert "Pattern Instructions:" in card, "each original card should include instructions in the same card"
+            assert re.search(r"\b(Row|Round) 1\b", card_text), (
+                "each original card should include Row 1 or Round 1"
+            )
+            assert re.search(r"\b(sc|hdc|dc|ch|sl st)\b", card_text), (
+                "each original card should include stitch abbreviations"
+            )
+            assert "sts" in card_lower, "each original card should include stitch counts"
+            for vague_phrase in (
+                "repeat until it fits",
+                "work in pattern",
+                "continue as needed",
+                "shape as desired",
+            ):
+                if vague_phrase in card_lower:
+                    assert re.search(r"\b(row|round) 1\b", card_lower) and "sts" in card_lower, (
+                        f"vague phrase {vague_phrase!r} must be paired with row/round details and stitch counts"
+                    )
             assert "Pattern Notes:" in card, "each original card should include notes in the same card"
             assert "Original StitchFlow Labs pattern for personal use." in card, (
                 "each original card should include the personal-use note"
